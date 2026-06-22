@@ -37,6 +37,7 @@ import {
 import { useAuthStore, useAppStore } from '@/lib/store';
 import { toast } from 'sonner';
 import TopUpDialog from '@/components/TopUpDialog';
+import GuestBanner from '@/components/GuestBanner';
 import type { Transaction } from '@/lib/types';
 
 function formatCurrency(amount: number) {
@@ -62,7 +63,7 @@ const txnIconColor: Record<string, string> = {
 };
 
 export default function ProfileView() {
-  const { user, card, updateUser, updateCard, logout } = useAuthStore();
+  const { user, card, updateUser, updateCard, logout, isGuest } = useAuthStore();
   const { navigate } = useAppStore();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +79,15 @@ export default function ProfileView() {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (isGuest) {
+        setTransactions([
+          { id: 'gt1', type: 'top_up', amount: 200.00, description: 'Wallet top-up via EFT', createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() },
+          { id: 'gt2', type: 'purchase', amount: 12.00, description: 'Single Ride Ticket', createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
+          { id: 'gt3', type: 'purchase', amount: 100.00, description: 'Multi-Ride Bundle (10 trips)', createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
+        ]);
+        setLoading(false);
+        return;
+      }
       if (user?.id) {
         try {
           const res = await fetch(`/api/transactions?userId=${user.id}`);
@@ -147,6 +157,7 @@ export default function ProfileView() {
 
   return (
     <div className="min-h-screen bg-[#F3F4F6] pb-24">
+      <GuestBanner />
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -157,6 +168,35 @@ export default function ProfileView() {
       </motion.div>
 
       <div className="px-4 pt-4 max-w-md mx-auto">
+        {/* Guest Sign-In CTA */}
+        {isGuest && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-5"
+          >
+            <Card className="p-5 bg-gradient-to-r from-[#004C97] to-[#003D7A] border-0">
+              <h3 className="text-white font-semibold text-base mb-1">Ready to get started?</h3>
+              <p className="text-white/70 text-sm mb-4">Sign in to manage your card, buy tickets, and track your trips.</p>
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => { logout(); navigate('login'); }}
+                  className="flex-1 h-10 bg-white text-[#004C97] hover:bg-white/90 font-semibold rounded-lg text-sm"
+                >
+                  Sign In
+                </Button>
+                <Button
+                  onClick={() => { logout(); navigate('register'); }}
+                  variant="outline"
+                  className="flex-1 h-10 border-white/30 text-white hover:bg-white/10 rounded-lg text-sm"
+                >
+                  Register
+                </Button>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+
         {/* User Info Card */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -253,6 +293,7 @@ export default function ProfileView() {
                         <p className="text-sm text-[#6B7280]">{user.phone}</p>
                       </div>
                     )}
+                    {!isGuest && (
                     <button
                       onClick={startEdit}
                       className="mt-2 text-xs text-[#004C97] font-medium hover:underline flex items-center gap-1"
@@ -260,6 +301,7 @@ export default function ProfileView() {
                       <Pencil className="w-3 h-3" />
                       Edit Profile
                     </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -320,6 +362,7 @@ export default function ProfileView() {
         </motion.div>
 
         {/* Top Up Button */}
+        {!isGuest && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -334,6 +377,7 @@ export default function ProfileView() {
             Top Up Wallet
           </Button>
         </motion.div>
+        )}
 
         {/* Transaction History */}
         <motion.div
@@ -345,6 +389,9 @@ export default function ProfileView() {
           <h2 className="text-sm font-semibold text-[#6B7280] uppercase tracking-wide mb-2">
             Transaction History
           </h2>
+          {isGuest && (
+            <p className="text-[10px] text-[#9CA3AF] -mt-1 mb-2">Sample transactions shown</p>
+          )}
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3, 4].map((i) => (
@@ -414,7 +461,7 @@ export default function ProfileView() {
           )}
         </motion.div>
 
-        {/* Logout */}
+        {/* Logout / Exit Guest */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -423,10 +470,10 @@ export default function ProfileView() {
           <Button
             onClick={() => setShowLogout(true)}
             variant="outline"
-            className="w-full h-11 border-[#D32F2F] text-[#D32F2F] hover:bg-[#FFEBEE] font-medium rounded-xl"
+            className={`w-full h-11 font-medium rounded-xl ${isGuest ? 'border-[#F9A825] text-[#F9A825] hover:bg-[#FFF8E1]' : 'border-[#D32F2F] text-[#D32F2F] hover:bg-[#FFEBEE]'}`}
           >
             <LogOut className="w-4 h-4 mr-2" />
-            Logout
+            {isGuest ? 'Exit Guest Mode' : 'Logout'}
           </Button>
         </motion.div>
       </div>
@@ -438,19 +485,20 @@ export default function ProfileView() {
       <AlertDialog open={showLogout} onOpenChange={setShowLogout}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Logout</AlertDialogTitle>
+            <AlertDialogTitle>{isGuest ? 'Exit Guest Mode' : 'Logout'}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to logout? You will need to enter your card number and PIN
-              to log back in.
+              {isGuest
+                ? 'Are you sure you want to exit guest mode? You can sign in or continue as a guest again.'
+                : 'Are you sure you want to logout? You will need to enter your card number and PIN to log back in.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleLogout}
-              className="bg-[#D32F2F] hover:bg-[#B71C1C] text-white"
+              className={isGuest ? 'bg-[#F9A825] hover:bg-[#E68A00] text-white' : 'bg-[#D32F2F] hover:bg-[#B71C1C] text-white'}
             >
-              Logout
+              {isGuest ? 'Exit' : 'Logout'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

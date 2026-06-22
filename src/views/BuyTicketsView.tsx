@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAuthStore, useAppStore } from '@/lib/store';
 import { toast } from 'sonner';
+import GuestBanner from '@/components/GuestBanner';
 import type { Ticket as TicketType } from '@/lib/types';
 
 interface TicketOption {
@@ -83,8 +84,8 @@ function formatCurrency(amount: number) {
 }
 
 export default function BuyTicketsView() {
-  const { card, updateCard } = useAuthStore();
-  const { goBack } = useAppStore();
+  const { card, updateCard, isGuest, logout } = useAuthStore();
+  const { goBack, navigate } = useAppStore();
   const [activeTickets, setActiveTickets] = useState<TicketType[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
@@ -93,6 +94,15 @@ export default function BuyTicketsView() {
   const balance = card?.balance ?? 0;
 
   const fetchTickets = async () => {
+    if (isGuest) {
+      // Show demo tickets for guest
+      setActiveTickets([
+        { id: 'gd1', type: 'multi_ride', tripsRemaining: 7, price: 100.0, status: 'active', cardId: 'guest', createdAt: new Date().toISOString() },
+        { id: 'gd2', type: 'single', tripsRemaining: 1, price: 12.0, status: 'active', cardId: 'guest', createdAt: new Date().toISOString() },
+      ]);
+      setLoading(false);
+      return;
+    }
     if (!card?.id) return;
     try {
       const res = await fetch(`/api/tickets?cardId=${card.id}`);
@@ -149,6 +159,7 @@ export default function BuyTicketsView() {
 
   return (
     <div className="min-h-screen bg-[#F3F4F6] pb-24">
+      <GuestBanner />
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -223,11 +234,13 @@ export default function BuyTicketsView() {
                     <Button
                       size="sm"
                       disabled={!canAfford || isPurchasing}
-                      onClick={() => setConfirmOption(option)}
-                      className="bg-[#00A651] hover:bg-[#008F45] text-white font-medium rounded-lg h-9 px-4 flex-shrink-0"
+                      onClick={() => { if (isGuest) { logout(); toast.info('Sign in to purchase tickets'); navigate('login'); } else { setConfirmOption(option); } }}
+                      className={`font-medium rounded-lg h-9 px-4 flex-shrink-0 ${isGuest ? 'bg-[#F9A825] hover:bg-[#E68A00] text-white' : 'bg-[#00A651] hover:bg-[#008F45] text-white'}`}
                     >
                       {isPurchasing ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : isGuest ? (
+                        'Sign In'
                       ) : (
                         'Buy'
                       )}
@@ -245,7 +258,9 @@ export default function BuyTicketsView() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <h2 className="text-base font-semibold text-[#1A1A1A] mb-3">Active Tickets</h2>
+          <h2 className="text-base font-semibold text-[#1A1A1A] mb-3">
+            {isGuest ? 'Sample Tickets' : 'Active Tickets'}
+          </h2>
           {loading ? (
             <div className="space-y-3">
               {[1, 2].map((i) => (

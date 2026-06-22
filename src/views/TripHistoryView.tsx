@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useAuthStore, useAppStore } from '@/lib/store';
+import GuestBanner from '@/components/GuestBanner';
 import type { Trip } from '@/lib/types';
 
 function formatCurrency(amount: number) {
@@ -47,13 +48,23 @@ function filterTrips(trips: Trip[], filter: DateFilter): Trip[] {
 }
 
 export default function TripHistoryView() {
-  const { card } = useAuthStore();
+  const { card, isGuest } = useAuthStore();
   const { goBack } = useAppStore();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState<DateFilter>('month');
 
   useEffect(() => {
+    if (isGuest) {
+      setTrips([
+        { id: 'g1', cardId: 'guest', route: 'Route 101 - Sandton to CBD', fromStop: 'Sandton City', toStop: 'Park Station', fare: 12.0, timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
+        { id: 'g2', cardId: 'guest', route: 'Route 202 - Midrand Express', fromStop: 'Midrand', toStop: 'Marlboro', fare: 15.0, timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
+        { id: 'g3', cardId: 'guest', route: 'Route 101 - Sandton to CBD', fromStop: 'Park Station', toStop: 'Sandton City', fare: 12.0, timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
+        { id: 'g4', cardId: 'guest', route: 'Route 303 - Soweto Link', fromStop: 'Bara', toStop: 'Vilakazi', fare: 10.0, timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
+      ]);
+      setLoading(false);
+      return;
+    }
     if (!card?.id) return;
     const fetchTrips = async () => {
       try {
@@ -88,6 +99,7 @@ export default function TripHistoryView() {
 
   return (
     <div className="min-h-screen bg-[#F3F4F6] pb-24">
+      <GuestBanner />
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}

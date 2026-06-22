@@ -6,7 +6,9 @@ interface AuthState {
   user: User | null;
   card: Card | null;
   isAuthenticated: boolean;
+  isGuest: boolean;
   setAuth: (user: User, card: Card) => void;
+  setGuest: () => void;
   updateCard: (card: Partial<Card>) => void;
   updateUser: (user: Partial<User>) => void;
   logout: () => void;
@@ -25,7 +27,22 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       card: null,
       isAuthenticated: false,
-      setAuth: (user, card) => set({ user, card, isAuthenticated: true }),
+      isGuest: false,
+      setAuth: (user, card) => set({ user, card, isAuthenticated: true, isGuest: false }),
+      setGuest: () =>
+        set({
+          user: { id: 'guest', fullName: 'Guest', email: '' },
+          card: {
+            id: 'guest',
+            cardNumber: '0000000000000000',
+            userId: 'guest',
+            balance: 150.00,
+            status: 'active',
+            type: 'standard',
+          },
+          isAuthenticated: true,
+          isGuest: true,
+        }),
       updateCard: (updates) =>
         set((state) => ({
           card: state.card ? { ...state.card, ...updates } : null,
@@ -34,7 +51,7 @@ export const useAuthStore = create<AuthState>()(
         set((state) => ({
           user: state.user ? { ...state.user, ...updates } : null,
         })),
-      logout: () => set({ user: null, card: null, isAuthenticated: false }),
+      logout: () => set({ user: null, card: null, isAuthenticated: false, isGuest: false }),
     }),
     {
       name: 'buscor-auth',
@@ -42,6 +59,7 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         card: state.card,
         isAuthenticated: state.isAuthenticated,
+        isGuest: state.isGuest,
       }),
     }
   )

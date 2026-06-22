@@ -80,3 +80,29 @@ Stage Summary:
 - Navigation works correctly with Zustand store
 - All 8 views verified: Login, Register, Dashboard, Buy Tickets, Tap-In, Card Management, Trip History, Profile
 - 0 lint errors
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Add "Use as Guest" feature to Buscor app
+
+Work Log:
+- Added isGuest, setGuest() to Zustand auth store with localStorage persistence
+- Created GuestBanner component (yellow sticky banner with Sign In button, dismiss)
+- Updated page.tsx routing to allow both authenticated and guest users to access all views
+- Added "Continue as Guest" button to LoginView with descriptive text
+- Updated DashboardView: demo data (trips, balance R150, amber card), "Sign In to Top Up"
+- Updated BuyTicketsView: demo tickets, "Sign In" buttons instead of "Buy", "Sample Tickets" label
+- Updated TapInView: demo QR code generation, "Sign In to Tap" button
+- Updated CardManagementView: demo stats, "SIGN IN TO MANAGE CARD" button, sign-in prompts on options
+- Updated TripHistoryView: demo trips, "Sample Transactions" label
+- Updated ProfileView: CTA card with Sign In/Register, hidden edit/topup, "Exit Guest Mode" button
+- Fixed all sign-in redirects to properly logout guest state first
+- Verified full flow: guest → browse all views → sign in → real data
+
+Stage Summary:
+- Files modified: store.ts, page.tsx, LoginView, DashboardView, BuyTicketsView, TapInView, CardManagementView, TripHistoryView, ProfileView
+- Files created: GuestBanner.tsx
+- Guest users see demo/sample data across all views
+- All "Sign In" prompts properly clear guest state before navigating to login
+- Signing in after guest mode seamlessly transitions to real account data

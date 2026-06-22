@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAuthStore, useAppStore } from '@/lib/store';
 import { toast } from 'sonner';
+import GuestBanner from '@/components/GuestBanner';
 
 function formatCurrency(amount: number) {
   return `R${amount.toFixed(2)}`;
@@ -51,8 +52,8 @@ const statusColor: Record<string, string> = {
 };
 
 export default function CardManagementView() {
-  const { card, updateCard } = useAuthStore();
-  const { goBack } = useAppStore();
+  const { card, updateCard, isGuest, logout } = useAuthStore();
+  const { goBack, navigate } = useAppStore();
   const [blocking, setBlocking] = useState(false);
   const [replacing, setReplacing] = useState(false);
   const [confirmBlock, setConfirmBlock] = useState(false);
@@ -151,6 +152,7 @@ export default function CardManagementView() {
 
   return (
     <div className="min-h-screen bg-[#F3F4F6] pb-24">
+      <GuestBanner />
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -240,12 +242,14 @@ export default function CardManagementView() {
           className="mb-6"
         >
           <Button
-            onClick={() => setConfirmBlock(true)}
+            onClick={() => isGuest ? (logout(), navigate('login'), toast.info('Sign in to manage your card')) : setConfirmBlock(true)}
             disabled={blocking || card?.status === 'expired'}
             className={`w-full h-12 font-semibold rounded-xl transition-all duration-200 ${
               isBlocked
                 ? 'bg-[#00A651] hover:bg-[#008F45] text-white'
-                : 'bg-[#D32F2F] hover:bg-[#B71C1C] text-white'
+                : isGuest
+                  ? 'bg-[#F9A825] hover:bg-[#E68A00] text-white'
+                  : 'bg-[#D32F2F] hover:bg-[#B71C1C] text-white'
             }`}
           >
             {blocking ? (
@@ -255,7 +259,7 @@ export default function CardManagementView() {
             ) : (
               <Lock className="w-5 h-5 mr-2" />
             )}
-            {isBlocked ? 'UNBLOCK CARD' : 'BLOCK CARD'}
+            {isGuest ? 'SIGN IN TO MANAGE CARD' : isBlocked ? 'UNBLOCK CARD' : 'BLOCK CARD'}
           </Button>
         </motion.div>
 
@@ -273,7 +277,7 @@ export default function CardManagementView() {
               return (
                 <button
                   key={idx}
-                  onClick={opt.action}
+                  onClick={() => isGuest ? (logout(), navigate('login'), toast.info('Sign in to access card options')) : opt.action()}
                   disabled={opt.disabled}
                   className="w-full flex items-center gap-3 p-4 hover:bg-[#F9FAFB] transition-colors text-left disabled:opacity-50"
                 >
@@ -303,12 +307,12 @@ export default function CardManagementView() {
           <div className="grid grid-cols-2 gap-3">
             <Card className="p-4 text-center">
               <MapPin className="w-5 h-5 text-[#004C97] mx-auto mb-2" />
-              <p className="text-xl font-bold text-[#1A1A1A]">--</p>
+              <p className="text-xl font-bold text-[#1A1A1A]">{isGuest ? '12' : '--'}</p>
               <p className="text-xs text-[#6B7280] mt-0.5">Total Trips</p>
             </Card>
             <Card className="p-4 text-center">
               <Wallet className="w-5 h-5 text-[#00A651] mx-auto mb-2" />
-              <p className="text-xl font-bold text-[#1A1A1A]">R0.00</p>
+              <p className="text-xl font-bold text-[#1A1A1A]">{isGuest ? 'R49.00' : 'R0.00'}</p>
               <p className="text-xs text-[#6B7280] mt-0.5">Total Spent</p>
             </Card>
           </div>

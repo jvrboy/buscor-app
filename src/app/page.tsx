@@ -29,7 +29,7 @@ export default function Home() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const initialRedirect = useRef(false);
 
-  // Redirect to dashboard if authenticated but on login/register (e.g. after page refresh)
+  // Redirect to dashboard if authenticated/guest but on login/register
   useEffect(() => {
     if (isAuthenticated && (currentView === 'login' || currentView === 'register') && !initialRedirect.current) {
       initialRedirect.current = true;

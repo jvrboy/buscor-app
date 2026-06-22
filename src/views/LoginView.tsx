@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bus, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Bus, Eye, EyeOff, Loader2, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,7 +15,7 @@ export default function LoginView() {
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ cardNumber?: string; pin?: string }>({});
-  const { setAuth } = useAuthStore();
+  const { setAuth, setGuest } = useAuthStore();
   const { navigate } = useAppStore();
 
   const validate = () => {
@@ -174,7 +174,7 @@ export default function LoginView() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.6 }}
-          className="mt-6"
+          className="mt-6 flex flex-col items-center gap-4 w-full"
         >
           <button
             onClick={() => navigate('register')}
@@ -182,6 +182,20 @@ export default function LoginView() {
           >
             Register Your Card
           </button>
+
+          <div className="w-full h-px bg-white/20" />
+
+          <Button
+            onClick={() => { setGuest(); toast.success('Welcome, Guest! Explore the app freely.'); navigate('dashboard'); }}
+            variant="outline"
+            className="w-full h-12 border-white/30 text-white hover:bg-white/10 font-medium text-sm rounded-xl gap-2"
+          >
+            <UserCheck className="w-4 h-4" />
+            Continue as Guest
+          </Button>
+          <p className="text-[#8BA8C7] text-xs text-center -mt-2">
+            Try the app before signing in. Sign in anytime to save your data.
+          </p>
         </motion.div>
       </motion.div>
     </div>

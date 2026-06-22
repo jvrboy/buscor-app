@@ -16,15 +16,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore, useAppStore } from '@/lib/store';
 import { toast } from 'sonner';
+import GuestBanner from '@/components/GuestBanner';
 import type { TapToken, Ticket } from '@/lib/types';
 
 const COUNTDOWN_SECONDS = 90;
 
 export default function TapInView() {
-  const { card } = useAuthStore();
+  const { card, isGuest, logout } = useAuthStore();
   const { goBack, navigate } = useAppStore();
   const [token, setToken] = useState<string>('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [activeTicketCount, setActiveTicketCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +72,12 @@ export default function TapInView() {
   }, [card?.id]);
 
   useEffect(() => {
+    if (isGuest) {
+      setToken('BUSCOR-GUEST-DEMO-' + Date.now());
+      setLoading(false);
+      setActiveTicketCount(2);
+      return;
+    }
     generateCode();
     fetchTicketCount();
   }, []);
@@ -104,6 +111,7 @@ export default function TapInView() {
 
   return (
     <div className="min-h-screen bg-[#004C97] flex flex-col pb-24">
+      <GuestBanner />
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -229,11 +237,11 @@ export default function TapInView() {
           </Button>
 
           <Button
-            onClick={() => toast.info('Hold your phone near the reader to tap in')}
-            className="w-full h-12 bg-[#00A651] hover:bg-[#008F45] text-white font-semibold rounded-xl"
+            onClick={() => { if (isGuest) { logout(); navigate('login'); toast.info('Sign in to use NFC tap'); } else { toast.info('Hold your phone near the reader to tap in'); } }}
+            className={`w-full h-12 font-semibold rounded-xl ${isGuest ? 'bg-[#F9A825] hover:bg-[#E68A00]' : 'bg-[#00A651] hover:bg-[#008F45]'} text-white`}
           >
             <Nfc className="w-5 h-5 mr-2" />
-            NFC Tap
+            {isGuest ? 'Sign In to Tap' : 'NFC Tap'}
           </Button>
 
           <button

@@ -19,7 +19,15 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useAuthStore, useAppStore } from '@/lib/store';
+import GuestBanner from '@/components/GuestBanner';
 import type { DashboardData, Trip } from '@/lib/types';
+
+// Demo data for guest users
+const DEMO_TRIPS: Trip[] = [
+  { id: 'd1', cardId: 'guest', route: 'Route 101 - Sandton to CBD', fromStop: 'Sandton City', toStop: 'Park Station', fare: 12.0, timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
+  { id: 'd2', cardId: 'guest', route: 'Route 202 - Midrand Express', fromStop: 'Midrand', toStop: 'Marlboro', fare: 15.0, timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
+  { id: 'd3', cardId: 'guest', route: 'Route 303 - Soweto Link', fromStop: 'Bara', toStop: 'Vilakazi', fare: 10.0, timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
+];
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -93,13 +101,16 @@ function TripRow({ trip }: { trip: Trip }) {
 }
 
 export default function DashboardView() {
-  const { user, card, updateCard } = useAuthStore();
+  const { user, card, updateCard, isGuest, logout } = useAuthStore();
   const { navigate } = useAppStore();
   const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isGuest);
 
   useEffect(() => {
-    if (!card?.id) return;
+    if (isGuest || !card?.id) {
+      if (isGuest) setLoading(false);
+      return;
+    }
     const fetchDashboard = async () => {
       try {
         const res = await fetch(`/api/dashboard?cardId=${card.id}`);
@@ -115,16 +126,17 @@ export default function DashboardView() {
       }
     };
     fetchDashboard();
-  }, [card?.id, updateCard]);
+  }, [card?.id, updateCard, isGuest]);
 
-  const recentTrips = data?.recentTrips || [];
+  const recentTrips = isGuest ? DEMO_TRIPS : (data?.recentTrips || []);
   const displayName = user?.fullName ? getFirstName(user.fullName) : 'User';
-  const balance = data?.card?.balance ?? card?.balance ?? 0;
-  const cardNum = data?.card?.cardNumber ?? card?.cardNumber ?? '0000000000000000';
-  const cardType = data?.card?.type ?? card?.type ?? 'standard';
+  const balance = isGuest ? 150.00 : (data?.card?.balance ?? card?.balance ?? 0);
+  const cardNum = isGuest ? '0000000000000000' : (data?.card?.cardNumber ?? card?.cardNumber ?? '0000000000000000');
+  const cardType = isGuest ? 'demo' : (data?.card?.type ?? card?.type ?? 'standard');
 
   return (
     <div className="min-h-screen bg-[#F3F4F6] pb-24">
+      <GuestBanner />
       <div className="px-4 pt-6 max-w-md mx-auto">
         {/* Greeting */}
         <motion.div
@@ -149,10 +161,11 @@ export default function DashboardView() {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="relative overflow-hidden rounded-2xl p-5 mb-6"
           style={{
-            background: 'linear-gradient(135deg, #00A651 0%, #007A3D 100%)',
+            background: isGuest
+              ? 'linear-gradient(135deg, #F9A825 0%, #E68A00 100%)'
+              : 'linear-gradient(135deg, #00A651 0%, #007A3D 100%)',
           }}
         >
-          {/* Decorative circles */}
           <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full" />
           <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-white/5 rounded-full" />
 
@@ -192,13 +205,23 @@ export default function DashboardView() {
           transition={{ duration: 0.4, delay: 0.2 }}
           className="mb-6"
         >
-          <Button
-            onClick={() => navigate('profile')}
-            className="w-full h-12 bg-[#004C97] hover:bg-[#003D7A] text-white font-semibold rounded-xl flex items-center justify-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            Top Up
-          </Button>
+          {isGuest ? (
+            <Button
+              onClick={() => { logout(); navigate('login'); }}
+              className="w-full h-12 bg-[#004C97] hover:bg-[#003D7A] text-white font-semibold rounded-xl flex items-center justify-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              Sign In to Top Up
+            </Button>
+          ) : (
+            <Button
+              onClick={() => navigate('profile')}
+              className="w-full h-12 bg-[#004C97] hover:bg-[#003D7A] text-white font-semibold rounded-xl flex items-center justify-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              Top Up
+            </Button>
+          )}
         </motion.div>
 
         {/* Quick Actions */}
@@ -241,7 +264,9 @@ export default function DashboardView() {
           transition={{ duration: 0.4, delay: 0.3 }}
         >
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-[#1A1A1A]">Recent Trips</h2>
+            <h2 className="text-base font-semibold text-[#1A1A1A]">
+              {isGuest ? 'Sample Trips' : 'Recent Trips'}
+            </h2>
             <button
               onClick={() => navigate('trip-history')}
               className="text-xs text-[#004C97] font-medium hover:underline"
@@ -269,6 +294,11 @@ export default function DashboardView() {
                     )}
                   </div>
                 ))}
+                {isGuest && (
+                  <p className="text-xs text-[#9CA3AF] text-center pt-2 mt-1 border-t border-[#F3F4F6]">
+                    These are sample trips. Sign in to see your real data.
+                  </p>
+                )}
               </>
             ) : (
               <div className="flex flex-col items-center py-6 text-center">
