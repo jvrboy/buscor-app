@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  fullName  String
+  email     String   @unique
+  phone     String?
+  pin       String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cards Card[]
+  transactions Transaction[]
+}
+
+model Card {
+  id        String   @id @default(cuid())
+  cardNumber String  @unique
+  userId    String
+  balance   Float    @default(0)
+  status    String   @default("active") // active, blocked, expired
+  type      String   @default("standard") // standard, premium, student
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User        @relation(fields: [userId], references: [id])
+  tickets      Ticket[]
+  trips        Trip[]
+  tapTokens    TapToken[]
+}
+
+model Ticket {
+  id          String   @id @default(cuid())
+  type        String   // single, multi_ride
+  tripsRemaining Int    @default(1)
+  price       Float
+  status      String   @default("active") // active, used, expired
+  cardId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  card Card @relation(fields: [cardId], references: [id])
+}
+
+model Trip {
+  id          String   @id @default(cuid())
+  cardId      String
+  route       String?
+  fromStop    String?
+  toStop      String?
+  fare        Float
+  timestamp   DateTime @default(now())
+  ticketId    String?
+
+  card Card @relation(fields: [cardId], references: [id])
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // top_up, purchase, refund
+  amount      Float
+  description String
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model TapToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  cardId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  card Card @relation(fields: [cardId], references: [id])
+}
