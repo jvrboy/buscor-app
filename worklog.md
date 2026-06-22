@@ -409,3 +409,26 @@ Stage Summary:
 - Guest mode already implemented from previous session (isGuest in store, GuestBanner, Continue as Guest button, demo data in all views)
 - 0 lint errors
 - All APIs verified working via curl: health, login (3 accounts), dashboard, tickets, trips, transactions, fares, notifications
+
+---
+Task ID: mobile-ci
+Agent: Main Agent
+Task: Create GitHub Actions workflows for unsigned iOS IPA and unsigned APK builds
+
+Work Log:
+- Assessed project structure: Next.js 16 web app, needs Capacitor for mobile wrapping
+- Created `capacitor.config.ts` with Buscor app config (appId: za.co.buscor.app, splash screen, status bar)
+- Created `.capacitorignore` to exclude dev files, database, docs from native bundles
+- Created `.github/workflows/build-android.yml` — standalone Android unsigned APK workflow
+- Created `.github/workflows/build-ios.yml` — standalone iOS unsigned IPA workflow
+- Created `.github/workflows/build-all.yml` — combined workflow that builds both platforms in parallel (shared web build step)
+- Added 6 mobile build scripts to package.json (mobile:build:web, mobile:sync:android, mobile:sync:ios, mobile:build:android, mobile:build:ios, mobile:build:all)
+
+Stage Summary:
+- 3 GitHub Actions workflow files created (build-android.yml, build-ios.yml, build-all.yml)
+- All workflows produce unsigned builds suitable for testing/distribution signing
+- Android workflow: Gradle assemble on ubuntu-latest, uploads .apk artifact
+- iOS workflow: xcodebuild on macos-latest with CODE_SIGNING_ALLOWED=NO, packages .app into .ipa, uploads artifact + dSYM symbols
+- Combined workflow shares a single Next.js static export build across both platforms
+- Workflows support manual dispatch with configurable build type (debug/release), API base URL, Xcode version, and iOS deployment target
+- All workflows include concurrency groups, timeout limits, artifact retention (30 days), and build summary tables

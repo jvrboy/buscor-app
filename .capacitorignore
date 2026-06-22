@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+
+# Development files
+*.md
+docs/
+examples/
+upload/
+*.log
+*.rar
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Database
+db/
+prisma/
+*.db
+*.db-journal
+
+# Testing
+coverage/
+__tests__/
+*.test.*
+*.spec.*
+
+# CI/CD
+.github/
+
+# Mini services
+mini-services/
+
+# Misc
+Caddyfile
+worklog.md
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg

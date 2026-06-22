@@ -10,7 +10,13 @@
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "mobile:build:web": "NEXT_PUBLIC_MOBILE=true npx next build -o out",
+    "mobile:sync:android": "npx cap sync android",
+    "mobile:sync:ios": "npx cap sync ios",
+    "mobile:build:android": "npm run mobile:build:web && npx cap sync android",
+    "mobile:build:ios": "npm run mobile:build:web && npx cap sync ios",
+    "mobile:build:all": "npm run mobile:build:web && npx cap sync"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
