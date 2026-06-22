@@ -61,74 +61,24 @@ jobs:
         with:
           distribution: "temurin"
           java-version: ${{ env.JAVA_VERSION }}
-          cache: "gradle"
 
       - name: Install dependencies
         run: npm install
 
       - name: Install Capacitor
-        run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android
-          npm install @capacitor/splash-screen @capacitor/status-bar
+        run: npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/splash-screen @capacitor/status-bar
 
-      - name: Prepare web directory
+      - name: Prepare web dir + Capacitor config
         run: |
           mkdir -p www
-          cat > www/index.html << 'HTMLEOF'
-          <!DOCTYPE html>
-          <html>
-          <head><meta charset="utf-8"><title>Buscor</title></head>
-          <body></body>
-          </html>
-          HTMLEOF
-
-      - name: Configure Capacitor for server URL
-        run: |
-          cat > capacitor.config.ts << 'EOF'
-          import type { CapacitorConfig } from "@capacitor/cli";
-          const config: CapacitorConfig = {
-            appId: "za.co.buscor.app",
-            appName: "Buscor",
-            webDir: "www",
-            server: {
-              url: "${{ inputs.server_url || 'https://buscor-app.vercel.app' }}",
-              androidScheme: "https",
-              cleartext: true,
-            },
-            plugins: {
-              SplashScreen: {
-                launchShowDuration: 2000,
-                backgroundColor: "#00A651",
-                showSpinner: false,
-                androidScaleType: "CENTER_CROP",
-              },
-              StatusBar: {
-                style: "LIGHT",
-                backgroundColor: "#00A651",
-              },
-            },
-          };
-          export default config;
-          EOF
+          echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Buscor</title></head><body></body></html>' > www/index.html
+          echo '{"appId":"za.co.buscor.app","appName":"Buscor","webDir":"www","server":{"url":"${{ inputs.server_url || 'https://buscor-app.vercel.app' }}","androidScheme":"https","cleartext":true},"plugins":{"SplashScreen":{"launchShowDuration":2000,"backgroundColor":"#00A651","showSpinner":false,"androidScaleType":"CENTER_CROP"},"StatusBar":{"style":"LIGHT","backgroundColor":"#00A651"}}}' > capacitor.config.json
 
       - name: Add Android platform
         run: npx cap add android
-        continue-on-error: true
 
       - name: Sync Capacitor
         run: npx cap sync android
-
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-android-${{ hashFiles('android/**/*.gradle*', 'android/gradle-wrapper.properties') }}
-          restore-keys: gradle-android-
-
-      - name: Make Gradle wrapper executable
-        run: chmod +x android/gradlew
 
       - name: Build unsigned APK
         working-directory: android
@@ -186,69 +136,23 @@ jobs:
         run: npm install
 
       - name: Install Capacitor
-        run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/ios
-          npm install @capacitor/splash-screen @capacitor/status-bar
+        run: npm install @capacitor/core @capacitor/cli @capacitor/ios @capacitor/splash-screen @capacitor/status-bar
 
-      - name: Install CocoaPods
-        run: gem install cocoapods --no-document || true
-
-      - name: Prepare web directory
+      - name: Prepare web dir + Capacitor config
         run: |
           mkdir -p www
-          cat > www/index.html << 'HTMLEOF'
-          <!DOCTYPE html>
-          <html>
-          <head><meta charset="utf-8"><title>Buscor</title></head>
-          <body></body>
-          </html>
-          HTMLEOF
-
-      - name: Configure Capacitor for server URL
-        run: |
-          cat > capacitor.config.ts << 'EOF'
-          import type { CapacitorConfig } from "@capacitor/cli";
-          const config: CapacitorConfig = {
-            appId: "za.co.buscor.app",
-            appName: "Buscor",
-            webDir: "www",
-            server: {
-              url: "${{ inputs.server_url || 'https://buscor-app.vercel.app' }}",
-              androidScheme: "https",
-              cleartext: true,
-            },
-            plugins: {
-              SplashScreen: {
-                launchShowDuration: 2000,
-                backgroundColor: "#00A651",
-                showSpinner: false,
-                androidScaleType: "CENTER_CROP",
-              },
-              StatusBar: {
-                style: "LIGHT",
-                backgroundColor: "#00A651",
-              },
-            },
-            ios: {
-              contentInset: "automatic",
-            },
-          };
-          export default config;
-          EOF
+          echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Buscor</title></head><body></body></html>' > www/index.html
+          echo '{"appId":"za.co.buscor.app","appName":"Buscor","webDir":"www","server":{"url":"${{ inputs.server_url || 'https://buscor-app.vercel.app' }}","androidScheme":"https","cleartext":true},"plugins":{"SplashScreen":{"launchShowDuration":2000,"backgroundColor":"#00A651","showSpinner":false,"androidScaleType":"CENTER_CROP"},"StatusBar":{"style":"LIGHT","backgroundColor":"#00A651"}},"ios":{"contentInset":"automatic"}}' > capacitor.config.json
 
       - name: Add iOS platform
         run: npx cap add ios
-        continue-on-error: true
 
       - name: Sync Capacitor
         run: npx cap sync ios
 
       - name: Update iOS deployment target
         run: |
-          PODFILE="ios/App/Podfile"
-          if [ -f "$PODFILE" ]; then
-            sed -i '' "s/platform :ios, '[^']*'/platform :ios, '${{ inputs.ios_deployment_target || '15.0' }}'/" "$PODFILE"
-          fi
+          sed -i '' "s/platform :ios, '[^']*'/platform :ios, '${{ inputs.ios_deployment_target || '15.0' }}'/" ios/App/Podfile
 
       - name: Install CocoaPods dependencies
         working-directory: ios/App
@@ -332,12 +236,9 @@ jobs:
           echo "| 🤖 Android | \`${{ needs.build-android.result }}\` | \`${{ env.BUILD_TYPE }}\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| 🍎 iOS | \`${{ needs.build-ios.result }}\` | \`${{ env.BUILD_TYPE }}\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "## Download Artifacts" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **APK**: Download from the \`android-apk\` artifact" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **IPA**: Download from the \`ios-ipa\` artifact" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **dSYM**: Download from the \`ios-dsym\` artifact (iOS crash symbols)" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Artifacts" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **APK**: \`android-apk\` artifact" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **IPA**: \`ios-ipa\` artifact" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **dSYM**: \`ios-dsym\` artifact" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "> ⚠️ Both builds are **unsigned**. You will need to sign them before distribution:" >> "$GITHUB_STEP_SUMMARY"
-          echo "> - Android: Use \`apksigner\` or Android App Bundle in Google Play Console" >> "$GITHUB_STEP_SUMMARY"
-          echo "> - iOS: Use Xcode, \`codesign\`, or upload to App Store Connect" >> "$GITHUB_STEP_SUMMARY"
-          echo "> - Alternatively, use services like EAS Build, Codemagic, or Bitrise for signed builds" >> "$GITHUB_STEP_SUMMARY"
+          echo "> ⚠️ **Unsigned** — sign before distribution" >> "$GITHUB_STEP_SUMMARY"
