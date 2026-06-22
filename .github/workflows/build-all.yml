@@ -158,6 +158,7 @@ jobs:
           CONFIG="${{ env.BUILD_TYPE == 'release' && 'Release' || 'Debug' }}"
           DERIVED="$RUNNER_TEMP/derived_data"
 
+          set -o pipefail
           xcodebuild \
             -project App.xcodeproj \
             -scheme App \
@@ -165,16 +166,19 @@ jobs:
             -configuration "$CONFIG" \
             -derivedDataPath "$DERIVED" \
             IPHONEOS_DEPLOYMENT_TARGET="${{ inputs.ios_deployment_target || '15.0' }}" \
-            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             ENABLE_BITCODE=NO \
             COMPILER_INDEX_STORE_ENABLE=NO \
             ONLY_ACTIVE_ARCH=NO \
-            -allowProvisioningUpdates \
             -skipPackageUpdates \
-            clean build \
-          | xcpretty --color || true
+            clean build 2>&1 | tee "$DERIVED/build.log"
+          
+          echo "Build completed. Checking for .app bundle..."
+          find "$DERIVED/Build/Products" -name "*.app" -type d -exec ls -la {} \;
+          echo "Build log (errors):"
+          rg -i "error:" "$DERIVED/build.log" || echo "No errors found in log"
 
       - name: Package IPA
         run: |
