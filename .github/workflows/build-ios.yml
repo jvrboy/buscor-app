@@ -1,17 +1,6 @@
 name: Build Unsigned iOS IPA
 
 on:
-  push:
-    branches: [main, develop, "release/*"]
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - ".gitignore"
-  pull_request:
-    branches: [main]
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
   workflow_dispatch:
     inputs:
       build_type:
@@ -22,10 +11,10 @@ on:
         options:
           - debug
           - release
-      api_base_url:
-        description: "API base URL (leave empty for production)"
-        required: false
-        default: ""
+      server_url:
+        description: "Deployed web app URL"
+        required: true
+        default: "https://buscor-app.vercel.app"
         type: string
       xcode_version:
         description: "Xcode version"
@@ -69,27 +58,59 @@ jobs:
         with:
           xcode-version: ${{ env.XCODE_VERSION }}
 
-      - name: Install root dependencies
+      - name: Install dependencies
         run: npm install
 
-      - name: Install Capacitor dependencies
+      - name: Install Capacitor
         run: |
-          npm install @capacitor/core @capacitor/cli
-          npm install @capacitor/ios
+          npm install @capacitor/core @capacitor/cli @capacitor/ios
           npm install @capacitor/splash-screen @capacitor/status-bar
 
-      - name: Install CocoaPods dependencies
-        run: |
-          gem install cocoapods --no-document || true
-          # Ensure we have a compatible version
-          pod --version
+      - name: Install CocoaPods
+        run: gem install cocoapods --no-document || true
 
-      - name: Build Next.js static export
-        env:
-          NEXT_PUBLIC_API_BASE_URL: ${{ inputs.api_base_url || '' }}
-          NEXT_PUBLIC_MOBILE: "true"
+      - name: Prepare web directory
         run: |
-          npx next build -o out
+          mkdir -p www
+          cat > www/index.html << 'HTMLEOF'
+          <!DOCTYPE html>
+          <html>
+          <head><meta charset="utf-8"><title>Buscor</title></head>
+          <body></body>
+          </html>
+          HTMLEOF
+
+      - name: Configure Capacitor for server URL
+        run: |
+          cat > capacitor.config.ts << 'EOF'
+          import type { CapacitorConfig } from "@capacitor/cli";
+          const config: CapacitorConfig = {
+            appId: "za.co.buscor.app",
+            appName: "Buscor",
+            webDir: "www",
+            server: {
+              url: "${{ inputs.server_url }}",
+              androidScheme: "https",
+              cleartext: true,
+            },
+            plugins: {
+              SplashScreen: {
+                launchShowDuration: 2000,
+                backgroundColor: "#00A651",
+                showSpinner: false,
+                androidScaleType: "CENTER_CROP",
+              },
+              StatusBar: {
+                style: "LIGHT",
+                backgroundColor: "#00A651",
+              },
+            },
+            ios: {
+              contentInset: "automatic",
+            },
+          };
+          export default config;
+          EOF
 
       - name: Add iOS platform
         run: npx cap add ios
@@ -100,7 +121,6 @@ jobs:
 
       - name: Update iOS deployment target
         run: |
-          # Update the deployment target in the Podfile
           PODFILE="ios/App/Podfile"
           if [ -f "$PODFILE" ]; then
             sed -i '' "s/platform :ios, '[^']*'/platform :ios, '${{ env.IOS_DEPLOYMENT_TARGET }}'/" "$PODFILE"
@@ -110,26 +130,21 @@ jobs:
         working-directory: ios/App
         run: pod install --repo-update
 
-      - name: Build unsigned IPA (${{ env.BUILD_TYPE }})
+      - name: Build unsigned IPA
         working-directory: ios/App
         run: |
-          WORKSPACE="App.xcworkspace"
-          SCHEME="App"
-          SDK="iphoneos"
-          DERIVED_DATA_PATH="$RUNNER_TEMP/derived_data"
-
           if [ "${{ env.BUILD_TYPE }}" = "release" ]; then
             CONFIGURATION="Release"
           else
             CONFIGURATION="Debug"
           fi
 
-          echo "Building ${CONFIGURATION} for ${SDK}..."
+          DERIVED_DATA_PATH="$RUNNER_TEMP/derived_data"
 
           xcodebuild \
-            -workspace "$WORKSPACE" \
-            -scheme "$SCHEME" \
-            -sdk "$SDK" \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -sdk iphoneos \
             -configuration "$CONFIGURATION" \
             -derivedDataPath "$DERIVED_DATA_PATH" \
             IPHONEOS_DEPLOYMENT_TARGET="${{ env.IOS_DEPLOYMENT_TARGET }}" \
@@ -153,17 +168,13 @@ jobs:
             exit 1
           fi
 
-          echo "Found .app bundle at: $BUILD_PRODUCTS_DIR"
-
-          # Create Payload directory for IPA
           PAYLOAD_DIR="$RUNNER_TEMP/ipa_build/Payload"
           mkdir -p "$PAYLOAD_DIR"
           cp -R "$BUILD_PRODUCTS_DIR" "$PAYLOAD_DIR/"
 
-          # Zip into IPA
           TIMESTAMP=$(date +'%Y%m%d-%H%M%S')
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          ARTIFACT_NAME="buscor-${{ env.BUILD_TYPE }}-${SHORT_SHA}-${TIMESTAMP}.ipa"
+          ARTIFACT_NAME="buscor-ios-${{ env.BUILD_TYPE }}-${SHORT_SHA}-${TIMESTAMP}.ipa"
 
           cd "$RUNNER_TEMP/ipa_build"
           zip -r "$RUNNER_TEMP/$ARTIFACT_NAME" Payload/
@@ -200,36 +211,7 @@ jobs:
           echo "| **Build Type** | \`${{ env.BUILD_TYPE }}\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| **Artifact** | \`${{ env.ARTIFACT_NAME }}\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| **Size** | ${{ env.IPA_SIZE }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Commit** | \`${{ github.sha }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Branch** | \`${{ github.ref_name }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Triggered by** | @${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Server URL** | \`${{ inputs.server_url }}\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| **Xcode** | \`${{ env.XCODE_VERSION }}\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| **Min iOS** | \`${{ env.IOS_DEPLOYMENT_TARGET }}\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| **Unsigned** | ✅ Yes (requires signing for distribution) |" >> "$GITHUB_STEP_SUMMARY"
-
-  # Optional: Run linting and type checks in parallel
-  quality-check:
-    name: Code Quality
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run ESLint
-        run: npm run lint -- --max-warnings=0
-        continue-on-error: true
-
-      - name: Run TypeScript check
-        run: npx tsc --noEmit
-        continue-on-error: true

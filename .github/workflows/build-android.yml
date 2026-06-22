@@ -1,31 +1,20 @@
 name: Build Unsigned Android APK
 
 on:
-  push:
-    branches: [main, develop, "release/*"]
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - ".gitignore"
-  pull_request:
-    branches: [main]
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
   workflow_dispatch:
     inputs:
       build_type:
         description: "Build type"
         required: true
-        default: "debug"
+        default: "release"
         type: choice
         options:
           - debug
           - release
-      api_base_url:
-        description: "API base URL (leave empty for production)"
-        required: false
-        default: ""
+      server_url:
+        description: "Deployed web app URL"
+        required: true
+        default: "https://buscor-app.vercel.app"
         type: string
 
 env:
@@ -41,7 +30,7 @@ jobs:
   build-android:
     name: Build Unsigned APK (${{ env.BUILD_TYPE }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 25
 
     steps:
       - name: Checkout repository
@@ -60,22 +49,53 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           cache: "gradle"
 
-      - name: Install root dependencies
+      - name: Install dependencies
         run: npm install
 
-      - name: Install Capacitor dependencies
+      - name: Install Capacitor
         run: |
-          npm install @capacitor/core @capacitor/cli
-          npm install @capacitor/android
+          npm install @capacitor/core @capacitor/cli @capacitor/android
           npm install @capacitor/splash-screen @capacitor/status-bar
 
-      - name: Build Next.js static export
-        env:
-          NEXT_PUBLIC_API_BASE_URL: ${{ inputs.api_base_url || '' }}
-          NEXT_PUBLIC_MOBILE: "true"
+      - name: Prepare web directory
         run: |
-          # Override output to static for mobile build
-          npx next build -o out
+          mkdir -p www
+          cat > www/index.html << 'HTMLEOF'
+          <!DOCTYPE html>
+          <html>
+          <head><meta charset="utf-8"><title>Buscor</title></head>
+          <body></body>
+          </html>
+          HTMLEOF
+
+      - name: Configure Capacitor for server URL
+        run: |
+          cat > capacitor.config.ts << 'EOF'
+          import type { CapacitorConfig } from "@capacitor/cli";
+          const config: CapacitorConfig = {
+            appId: "za.co.buscor.app",
+            appName: "Buscor",
+            webDir: "www",
+            server: {
+              url: "${{ inputs.server_url }}",
+              androidScheme: "https",
+              cleartext: true,
+            },
+            plugins: {
+              SplashScreen: {
+                launchShowDuration: 2000,
+                backgroundColor: "#00A651",
+                showSpinner: false,
+                androidScaleType: "CENTER_CROP",
+              },
+              StatusBar: {
+                style: "LIGHT",
+                backgroundColor: "#00A651",
+              },
+            },
+          };
+          export default config;
+          EOF
 
       - name: Add Android platform
         run: npx cap add android
@@ -97,18 +117,13 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
-      - name: Build unsigned APK (${{ env.BUILD_TYPE }})
+      - name: Build unsigned APK
         working-directory: android
         run: |
           if [ "${{ env.BUILD_TYPE }}" = "release" ]; then
-            ./gradlew assembleRelease \
-              -Pandroid.injected.signing.store.file=/dev/null \
-              --no-daemon \
-              --warning-mode=none
+            ./gradlew assembleRelease --no-daemon --warning-mode=none
           else
-            ./gradlew assembleDebug \
-              --no-daemon \
-              --warning-mode=none
+            ./gradlew assembleDebug --no-daemon --warning-mode=none
           fi
 
       - name: Rename APK artifact
@@ -144,34 +159,6 @@ jobs:
           echo "| **Build Type** | \`${{ env.BUILD_TYPE }}\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| **Artifact** | \`${{ env.ARTIFACT_NAME }}\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| **Size** | ${{ env.APK_SIZE }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Server URL** | \`${{ inputs.server_url }}\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| **Commit** | \`${{ github.sha }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Branch** | \`${{ github.ref_name }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Triggered by** | @${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| **Unsigned** | ✅ Yes (requires signing for distribution) |" >> "$GITHUB_STEP_SUMMARY"
-
-  # Optional: Run linting and type checks in parallel
-  quality-check:
-    name: Code Quality
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run ESLint
-        run: npm run lint -- --max-warnings=0
-        continue-on-error: true
-
-      - name: Run TypeScript check
-        run: npx tsc --noEmit
-        continue-on-error: true
