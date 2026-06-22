@@ -29,7 +29,7 @@ on:
         type: string
 
 env:
-  NODE_VERSION: "20"
+  NODE_VERSION: "22"
   JAVA_VERSION: "17"
   BUILD_TYPE: ${{ inputs.build_type || 'release' }}
 
@@ -61,7 +61,7 @@ jobs:
           cache: "gradle"
 
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
 
       - name: Install Capacitor dependencies
         run: |
@@ -166,7 +166,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Run ESLint
         run: npm run lint -- --max-warnings=0
