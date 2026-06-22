@@ -152,22 +152,6 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync ios
 
-      - name: List iOS project structure
-        run: find ios -type f -name "Podfile" -o -name "*.xcworkspace" -o -name "*.xcodeproj" 2>/dev/null
-
-      - name: Update iOS deployment target
-        working-directory: ios/App
-        run: |
-          if [ -f Podfile ]; then
-            sed -i '' "s/platform :ios, '[^']*'/platform :ios, '${{ inputs.ios_deployment_target || '15.0' }}'/" Podfile
-          else
-            echo "Podfile not found, skipping deployment target update"
-          fi
-
-      - name: Install CocoaPods dependencies
-        working-directory: ios/App
-        run: pod install --repo-update
-
       - name: Build unsigned .app
         working-directory: ios/App
         run: |
@@ -175,7 +159,7 @@ jobs:
           DERIVED="$RUNNER_TEMP/derived_data"
 
           xcodebuild \
-            -workspace App.xcworkspace \
+            -project App.xcodeproj \
             -scheme App \
             -sdk iphoneos \
             -configuration "$CONFIG" \
@@ -188,6 +172,7 @@ jobs:
             COMPILER_INDEX_STORE_ENABLE=NO \
             ONLY_ACTIVE_ARCH=NO \
             -allowProvisioningUpdates \
+            -skipPackageUpdates \
             clean build \
           | xcpretty --color || true
 
