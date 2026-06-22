@@ -107,6 +107,7 @@ jobs:
       - name: Apply Buscor branding
         run: |
           echo "📱 Applying Buscor production branding..."
+          rm -f android/app/src/main/res/values/ic_launcher_background.xml
           cp -Rf mobile-resources/android/app/src/main/res/* android/app/src/main/res/
           sed -i "s/versionCode [0-9]*/versionCode ${{ env.BUILD_NUMBER }}/" android/app/build.gradle
           sed -i 's/versionName "[^"]*"/versionName "${{ env.APP_VERSION }}"/' android/app/build.gradle

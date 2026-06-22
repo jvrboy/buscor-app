@@ -127,6 +127,7 @@ jobs:
           cp -R mobile-resources/ios/App/App/Assets.xcassets/Splash.imageset ios/App/App/Assets.xcassets/
           
           # Copy LaunchScreen.storyboard
+          mkdir -p ios/App/Base.lproj
           cp -f mobile-resources/ios/App/Base.lproj/LaunchScreen.storyboard ios/App/Base.lproj/
           
           # Update Info.plist
