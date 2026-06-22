@@ -26,10 +26,22 @@ on:
         required: false
         default: "15.0"
         type: string
+      app_version:
+        description: "App version (e.g. 1.0.0)"
+        required: false
+        default: "1.0.0"
+        type: string
+      build_number:
+        description: "Build number (integer)"
+        required: false
+        default: "6"
+        type: string
 
 env:
   NODE_VERSION: "22"
   BUILD_TYPE: ${{ inputs.build_type || 'release' }}
+  APP_VERSION: ${{ inputs.app_version || '1.0.0' }}
+  BUILD_NUMBER: ${{ inputs.build_number || '6' }}
 
 concurrency:
   group: ios-build-${{ github.ref }}
@@ -66,14 +78,81 @@ jobs:
         run: |
           rm -f capacitor.config.ts
           mkdir -p www
-          echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Buscor</title></head><body></body></html>' > www/index.html
-          echo '{"appId":"za.co.buscor.app","appName":"Buscor","webDir":"www","server":{"url":"${{ inputs.server_url }}","androidScheme":"https","cleartext":true},"ios":{"contentInset":"automatic"}}' > capacitor.config.json
+          echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Buscor</title><style>*{margin:0;padding:0}body{background:#004C97}</style></head><body></body></html>' > www/index.html
+          cat > capacitor.config.json <<'CAPCFG'
+          {
+            "appId": "za.co.buscor.app",
+            "appName": "Buscor",
+            "webDir": "www",
+            "server": {
+              "url": "${{ inputs.server_url }}",
+              "androidScheme": "https",
+              "cleartext": true
+            },
+            "ios": {
+              "contentInset": "automatic"
+            },
+            "plugins": {
+              "SplashScreen": {
+                "launchShowDuration": 2000,
+                "backgroundColor": "#004C97",
+                "showSpinner": false,
+                "iosScaleType": "CENTER_CROP",
+                "splashFullScreen": true,
+                "splashImmersive": true
+              },
+              "StatusBar": {
+                "style": "LIGHT"
+              }
+            }
+          }
+          CAPCFG
 
       - name: Add iOS platform
         run: npx cap add ios
 
       - name: Sync Capacitor
         run: npx cap sync ios
+
+      - name: Apply Buscor branding
+        run: |
+          echo "🍎 Applying Buscor production branding..."
+          
+          # Copy app icons
+          rm -rf ios/App/App/Assets.xcassets/AppIcon.appiconset
+          cp -R mobile-resources/ios/App/App/Assets.xcassets/AppIcon.appiconset ios/App/App/Assets.xcassets/
+          
+          # Copy splash images
+          rm -rf ios/App/App/Assets.xcassets/Splash.imageset
+          cp -R mobile-resources/ios/App/App/Assets.xcassets/Splash.imageset ios/App/App/Assets.xcassets/
+          
+          # Copy LaunchScreen.storyboard
+          cp -f mobile-resources/ios/App/Base.lproj/LaunchScreen.storyboard ios/App/Base.lproj/
+          
+          # Update Info.plist
+          PLIST="ios/App/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Buscor" "$PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Buscor" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ env.APP_VERSION }}" "$PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string ${{ env.APP_VERSION }}" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ env.BUILD_NUMBER }}" "$PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${{ env.BUILD_NUMBER }}" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :UIStatusBarStyle UIStatusBarStyleLightContent" "$PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :UIStatusBarStyle string UIStatusBarStyleLightContent" "$PLIST"
+          
+          # Update Xcode project
+          PBXPROJ="ios/App/App.xcodeproj/project.pbxproj"
+          sed -i '' "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = ${{ env.APP_VERSION }}/g" "$PBXPROJ"
+          sed -i '' "s/CURRENT_PROJECT_VERSION = [^;]*/CURRENT_PROJECT_VERSION = ${{ env.BUILD_NUMBER }}/g" "$PBXPROJ"
+          sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = [^;]*/PRODUCT_BUNDLE_IDENTIFIER = za.co.buscor.app/g' "$PBXPROJ"
+          sed -i '' 's/PRODUCT_NAME = [^;]*/PRODUCT_NAME = Buscor/g' "$PBXPROJ"
+          
+          # Fix SUPPORTED_PLATFORMS
+          if grep -q 'SUPPORTED_PLATFORMS = ""' "$PBXPROJ"; then
+            sed -i '' 's/SUPPORTED_PLATFORMS = ""/SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"/' "$PBXPROJ"
+          fi
+          
+          echo "  ✅ Branding applied: v${{ env.APP_VERSION }} (build ${{ env.BUILD_NUMBER }})"
 
       - name: Build unsigned .app
         working-directory: ios/App

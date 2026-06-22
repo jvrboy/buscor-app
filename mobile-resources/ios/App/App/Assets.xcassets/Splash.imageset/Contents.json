@@ -1,0 +1,64 @@
+{
+  "images": [
+    {
+      "filename": "splash-iphone-xs-max.png",
+      "idiom": "universal",
+      "platform": "ios",
+      "scale": "1x",
+      "size": "1242x2688"
+    },
+    {
+      "filename": "splash-iphone-x.png",
+      "idiom": "universal",
+      "platform": "ios",
+      "scale": "1x",
+      "size": "1125x2436"
+    },
+    {
+      "filename": "splash-iphone-xr.png",
+      "idiom": "universal",
+      "platform": "ios",
+      "scale": "1x",
+      "size": "828x1792"
+    },
+    {
+      "filename": "splash-iphone-8.png",
+      "idiom": "universal",
+      "platform": "ios",
+      "scale": "1x",
+      "size": "750x1334"
+    },
+    {
+      "filename": "splash-iphone-8-plus.png",
+      "idiom": "universal",
+      "platform": "ios",
+      "scale": "1x",
+      "size": "1242x2208"
+    },
+    {
+      "filename": "splash-ipad-pro-12.9.png",
+      "idiom": "universal",
+      "platform": "ios",
+      "scale": "1x",
+      "size": "2048x2732"
+    },
+    {
+      "filename": "splash-ipad-pro-11.png",
+      "idiom": "universal",
+      "platform": "ios",
+      "scale": "1x",
+      "size": "1668x2388"
+    },
+    {
+      "filename": "splash-ipad.png",
+      "idiom": "universal",
+      "platform": "ios",
+      "scale": "1x",
+      "size": "1536x2048"
+    }
+  ],
+  "info": {
+    "version": 1,
+    "author": "xcode"
+  }
+}

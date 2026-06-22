@@ -19,21 +19,23 @@ on:
         required: true
         default: "https://buscor-app.vercel.app"
         type: string
-      xcode_version:
-        description: "Xcode version (iOS only)"
+      app_version:
+        description: "App version (e.g. 1.0.0)"
         required: false
-        default: "16.0"
+        default: "1.0.0"
         type: string
-      ios_deployment_target:
-        description: "Minimum iOS version"
+      build_number:
+        description: "Build number (integer)"
         required: false
-        default: "15.0"
+        default: "6"
         type: string
 
 env:
   NODE_VERSION: "22"
   JAVA_VERSION: "21"
   BUILD_TYPE: ${{ inputs.build_type || 'release' }}
+  APP_VERSION: ${{ inputs.app_version || '1.0.0' }}
+  BUILD_NUMBER: ${{ inputs.build_number || '6' }}
 
 concurrency:
   group: mobile-build-all-${{ github.ref }}
@@ -72,14 +74,56 @@ jobs:
         run: |
           rm -f capacitor.config.ts
           mkdir -p www
-          echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Buscor</title></head><body></body></html>' > www/index.html
-          echo '{"appId":"za.co.buscor.app","appName":"Buscor","webDir":"www","server":{"url":"${{ inputs.server_url || 'https://buscor-app.vercel.app' }}","androidScheme":"https","cleartext":true}}' > capacitor.config.json
+          echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Buscor</title><style>*{margin:0;padding:0}body{background:#004C97}</style></head><body></body></html>' > www/index.html
+          cat > capacitor.config.json <<'CAPCFG'
+          {
+            "appId": "za.co.buscor.app",
+            "appName": "Buscor",
+            "webDir": "www",
+            "server": {
+              "url": "${{ inputs.server_url || 'https://buscor-app.vercel.app' }}",
+              "androidScheme": "https",
+              "cleartext": true
+            },
+            "plugins": {
+              "SplashScreen": {
+                "launchShowDuration": 2000,
+                "backgroundColor": "#004C97",
+                "showSpinner": false,
+                "androidScaleType": "CENTER_CROP",
+                "splashFullScreen": true,
+                "splashImmersive": true
+              },
+              "StatusBar": {
+                "style": "LIGHT",
+                "backgroundColor": "#003A75"
+              }
+            }
+          }
+          CAPCFG
 
       - name: Add Android platform
         run: npx cap add android
 
       - name: Sync Capacitor
         run: npx cap sync android
+
+      - name: Apply Buscor branding
+        run: |
+          echo "📱 Applying Buscor production branding..."
+          
+          # Copy all resources (icons, splash, themes, adaptive icons)
+          cp -Rf mobile-resources/android/app/src/main/res/* android/app/src/main/res/
+          echo "  ✅ Icons, splash, themes, and adaptive icons copied"
+          
+          # Update version in build.gradle
+          sed -i "s/versionCode [0-9]*/versionCode ${{ env.BUILD_NUMBER }}/" android/app/build.gradle
+          sed -i 's/versionName "[^"]*"/versionName "${{ env.APP_VERSION }}"/' android/app/build.gradle
+          echo "  ✅ Version: ${{ env.APP_VERSION }} (build ${{ env.BUILD_NUMBER }})"
+          
+          # Ensure app name
+          sed -i 's/<string name="app_name">[^<]*<\/string>/<string name="app_name">Buscor<\/string>/' android/app/src/main/res/values/strings.xml
+          echo "  ✅ Branding applied"
 
       - name: Build unsigned APK
         working-directory: android
@@ -143,14 +187,85 @@ jobs:
         run: |
           rm -f capacitor.config.ts
           mkdir -p www
-          echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Buscor</title></head><body></body></html>' > www/index.html
-          echo '{"appId":"za.co.buscor.app","appName":"Buscor","webDir":"www","server":{"url":"${{ inputs.server_url || 'https://buscor-app.vercel.app' }}","androidScheme":"https","cleartext":true},"ios":{"contentInset":"automatic"}}' > capacitor.config.json
+          echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Buscor</title><style>*{margin:0;padding:0}body{background:#004C97}</style></head><body></body></html>' > www/index.html
+          cat > capacitor.config.json <<'CAPCFG'
+          {
+            "appId": "za.co.buscor.app",
+            "appName": "Buscor",
+            "webDir": "www",
+            "server": {
+              "url": "${{ inputs.server_url || 'https://buscor-app.vercel.app' }}",
+              "androidScheme": "https",
+              "cleartext": true
+            },
+            "ios": {
+              "contentInset": "automatic"
+            },
+            "plugins": {
+              "SplashScreen": {
+                "launchShowDuration": 2000,
+                "backgroundColor": "#004C97",
+                "showSpinner": false,
+                "iosScaleType": "CENTER_CROP",
+                "splashFullScreen": true,
+                "splashImmersive": true
+              },
+              "StatusBar": {
+                "style": "LIGHT"
+              }
+            }
+          }
+          CAPCFG
 
       - name: Add iOS platform
         run: npx cap add ios
 
       - name: Sync Capacitor
         run: npx cap sync ios
+
+      - name: Apply Buscor branding
+        run: |
+          echo "🍎 Applying Buscor production branding..."
+          
+          # Copy app icons
+          rm -rf ios/App/App/Assets.xcassets/AppIcon.appiconset
+          cp -R mobile-resources/ios/App/App/Assets.xcassets/AppIcon.appiconset ios/App/App/Assets.xcassets/
+          echo "  ✅ AppIcon assets copied"
+          
+          # Copy splash images
+          rm -rf ios/App/App/Assets.xcassets/Splash.imageset
+          cp -R mobile-resources/ios/App/App/Assets.xcassets/Splash.imageset ios/App/App/Assets.xcassets/
+          echo "  ✅ Splash assets copied"
+          
+          # Copy LaunchScreen.storyboard
+          cp -f mobile-resources/ios/App/Base.lproj/LaunchScreen.storyboard ios/App/Base.lproj/
+          echo "  ✅ LaunchScreen.storyboard copied"
+          
+          # Update Info.plist
+          PLIST="ios/App/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Buscor" "$PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Buscor" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ env.APP_VERSION }}" "$PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string ${{ env.APP_VERSION }}" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ env.BUILD_NUMBER }}" "$PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${{ env.BUILD_NUMBER }}" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :UIStatusBarStyle UIStatusBarStyleLightContent" "$PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :UIStatusBarStyle string UIStatusBarStyleLightContent" "$PLIST"
+          echo "  ✅ Info.plist: v${{ env.APP_VERSION }} (build ${{ env.BUILD_NUMBER }})"
+          
+          # Update Xcode project settings
+          PBXPROJ="ios/App/App.xcodeproj/project.pbxproj"
+          sed -i '' "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = ${{ env.APP_VERSION }}/g" "$PBXPROJ"
+          sed -i '' "s/CURRENT_PROJECT_VERSION = [^;]*/CURRENT_PROJECT_VERSION = ${{ env.BUILD_NUMBER }}/g" "$PBXPROJ"
+          sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = [^;]*/PRODUCT_BUNDLE_IDENTIFIER = za.co.buscor.app/g' "$PBXPROJ"
+          sed -i '' 's/PRODUCT_NAME = [^;]*/PRODUCT_NAME = Buscor/g' "$PBXPROJ"
+          echo "  ✅ Xcode project settings updated"
+          
+          # Fix empty SUPPORTED_PLATFORMS if present
+          if grep -q 'SUPPORTED_PLATFORMS = ""' "$PBXPROJ"; then
+            sed -i '' 's/SUPPORTED_PLATFORMS = ""/SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"/' "$PBXPROJ"
+            echo "  ✅ Fixed SUPPORTED_PLATFORMS"
+          fi
 
       - name: Build unsigned .app
         working-directory: ios/App
@@ -160,13 +275,6 @@ jobs:
 
           set -o pipefail
           
-          # Fix Capacitor project: add missing SUPPORTED_PLATFORMS
-          PBXPROJ="App.xcodeproj/project.pbxproj"
-          if grep -q 'SUPPORTED_PLATFORMS = ""' "$PBXPROJ"; then
-            echo "Fixing empty SUPPORTED_PLATFORMS in project.pbxproj"
-            sed -i '' 's/SUPPORTED_PLATFORMS = ""/SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"/' "$PBXPROJ"
-          fi
-          
           xcodebuild \
             -project App.xcodeproj \
             -scheme App \
@@ -174,7 +282,7 @@ jobs:
             -configuration "$CONFIG" \
             -derivedDataPath "$DERIVED" \
             SUPPORTED_PLATFORMS="iphoneos iphonesimulator" \
-            IPHONEOS_DEPLOYMENT_TARGET="${{ inputs.ios_deployment_target || '15.0' }}" \
+            IPHONEOS_DEPLOYMENT_TARGET="15.0" \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
@@ -239,14 +347,20 @@ jobs:
         run: |
           echo "# 🚌 Buscor Mobile Build Summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Platform | Status | Build Type |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|----------|--------|------------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| 🤖 Android | \`${{ needs.build-android.result }}\` | \`${{ env.BUILD_TYPE }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| 🍎 iOS | \`${{ needs.build-ios.result }}\` | \`${{ env.BUILD_TYPE }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Platform | Status | Version | Build Type |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|----------|--------|---------|------------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| 🤖 Android | \`${{ needs.build-android.result }}\` | v\`${{ env.APP_VERSION }}\` (\`${{ env.BUILD_NUMBER }}\`) | \`${{ env.BUILD_TYPE }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| 🍎 iOS | \`${{ needs.build-ios.result }}\` | v\`${{ env.APP_VERSION }}\` (\`${{ env.BUILD_NUMBER }}\`) | \`${{ env.BUILD_TYPE }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Branding" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ✅ Custom Buscor app icon on all platforms" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ✅ Custom splash screen with Buscor branding" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ✅ Adaptive Android icons (API 26+)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ✅ Status bar: Light on dark blue" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "## Artifacts" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **APK**: \`android-apk\` artifact" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **IPA**: \`ios-ipa\` artifact" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **APK**: \`android-apk\` artifact (\`${{ needs.build-android.result == 'success' && '✅' || '❌' }}\`)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **IPA**: \`ios-ipa\` artifact (\`${{ needs.build-ios.result == 'success' && '✅' || '❌' }}\`)" >> "$GITHUB_STEP_SUMMARY"
           echo "- **dSYM**: \`ios-dsym\` artifact" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "> ⚠️ **Unsigned** — sign before distribution" >> "$GITHUB_STEP_SUMMARY"
