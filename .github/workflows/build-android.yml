@@ -19,7 +19,7 @@ on:
 
 env:
   NODE_VERSION: "22"
-  JAVA_VERSION: "17"
+  JAVA_VERSION: "21"
   BUILD_TYPE: ${{ inputs.build_type || 'release' }}
 
 concurrency:
@@ -47,75 +47,25 @@ jobs:
         with:
           distribution: "temurin"
           java-version: ${{ env.JAVA_VERSION }}
-          cache: "gradle"
 
       - name: Install dependencies
         run: npm install
 
       - name: Install Capacitor
-        run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android
-          npm install @capacitor/splash-screen @capacitor/status-bar
+        run: npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/splash-screen @capacitor/status-bar
 
-      - name: Prepare web directory
+      - name: Prepare web dir + Capacitor config
         run: |
+          rm -f capacitor.config.ts
           mkdir -p www
-          cat > www/index.html << 'HTMLEOF'
-          <!DOCTYPE html>
-          <html>
-          <head><meta charset="utf-8"><title>Buscor</title></head>
-          <body></body>
-          </html>
-          HTMLEOF
-
-      - name: Configure Capacitor for server URL
-        run: |
-          cat > capacitor.config.ts << 'EOF'
-          import type { CapacitorConfig } from "@capacitor/cli";
-          const config: CapacitorConfig = {
-            appId: "za.co.buscor.app",
-            appName: "Buscor",
-            webDir: "www",
-            server: {
-              url: "${{ inputs.server_url }}",
-              androidScheme: "https",
-              cleartext: true,
-            },
-            plugins: {
-              SplashScreen: {
-                launchShowDuration: 2000,
-                backgroundColor: "#00A651",
-                showSpinner: false,
-                androidScaleType: "CENTER_CROP",
-              },
-              StatusBar: {
-                style: "LIGHT",
-                backgroundColor: "#00A651",
-              },
-            },
-          };
-          export default config;
-          EOF
+          echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Buscor</title></head><body></body></html>' > www/index.html
+          echo '{"appId":"za.co.buscor.app","appName":"Buscor","webDir":"www","server":{"url":"${{ inputs.server_url }}","androidScheme":"https","cleartext":true},"plugins":{"SplashScreen":{"launchShowDuration":2000,"backgroundColor":"#00A651","showSpinner":false,"androidScaleType":"CENTER_CROP"},"StatusBar":{"style":"LIGHT","backgroundColor":"#00A651"}}}' > capacitor.config.json
 
       - name: Add Android platform
         run: npx cap add android
-        continue-on-error: true
 
       - name: Sync Capacitor
         run: npx cap sync android
-
-      - name: Make Gradle wrapper executable
-        run: chmod +x android/gradlew
-
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
 
       - name: Build unsigned APK
         working-directory: android
@@ -126,18 +76,16 @@ jobs:
             ./gradlew assembleDebug --no-daemon --warning-mode=none
           fi
 
-      - name: Rename APK artifact
+      - name: Package APK artifact
         run: |
           if [ "${{ env.BUILD_TYPE }}" = "release" ]; then
             APK_PATH="android/app/build/outputs/apk/release/app-release-unsigned.apk"
           else
             APK_PATH="android/app/build/outputs/apk/debug/app-debug.apk"
           fi
-
-          TIMESTAMP=$(date +'%Y%m%d-%H%M%S')
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          TIMESTAMP=$(date +'%Y%m%d-%H%M%S')
           ARTIFACT_NAME="buscor-${{ env.BUILD_TYPE }}-${SHORT_SHA}-${TIMESTAMP}.apk"
-
           cp "$APK_PATH" "$ARTIFACT_NAME"
           echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> "$GITHUB_ENV"
           echo "APK_SIZE=$(du -h "$ARTIFACT_NAME" | cut -f1)" >> "$GITHUB_ENV"
@@ -149,16 +97,3 @@ jobs:
           path: ${{ env.ARTIFACT_NAME }}
           retention-days: 30
           if-no-files-found: error
-
-      - name: Build summary
-        run: |
-          echo "## 🤖 Android Build Complete" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Build Type** | \`${{ env.BUILD_TYPE }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Artifact** | \`${{ env.ARTIFACT_NAME }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Size** | ${{ env.APK_SIZE }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Server URL** | \`${{ inputs.server_url }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Commit** | \`${{ github.sha }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Unsigned** | ✅ Yes (requires signing for distribution) |" >> "$GITHUB_STEP_SUMMARY"
