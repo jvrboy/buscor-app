@@ -152,24 +152,16 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync ios
 
-      - name: Find iOS project paths
-        id: ios-paths
-        run: |
-          APP_DIR=$(find ios -name "App.xcworkspace" -exec dirname {} \;)
-          echo "app_dir=$APP_DIR" >> "$GITHUB_OUTPUT"
-          echo "Found iOS app at: $APP_DIR"
-          ls "$APP_DIR"/
-
       - name: Update iOS deployment target
-        run: |
-          sed -i '' "s/platform :ios, '[^']*'/platform :ios, '${{ inputs.ios_deployment_target || '15.0' }}'/" ${{ steps.ios-paths.outputs.app_dir }}/Podfile
+        working-directory: ios/App
+        run: sed -i '' "s/platform :ios, '[^']*'/platform :ios, '${{ inputs.ios_deployment_target || '15.0' }}'/" Podfile
 
       - name: Install CocoaPods dependencies
-        working-directory: ${{ steps.ios-paths.outputs.app_dir }}
+        working-directory: ios/App
         run: pod install --repo-update
 
       - name: Build unsigned .app
-        working-directory: ${{ steps.ios-paths.outputs.app_dir }}
+        working-directory: ios/App
         run: |
           CONFIG="${{ env.BUILD_TYPE == 'release' && 'Release' || 'Debug' }}"
           DERIVED="$RUNNER_TEMP/derived_data"
