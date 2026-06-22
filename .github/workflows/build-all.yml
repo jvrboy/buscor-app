@@ -182,7 +182,7 @@ jobs:
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: "16.4"
 
       - name: Install dependencies
         run: npm install
@@ -207,19 +207,6 @@ jobs:
             },
             "ios": {
               "contentInset": "automatic"
-            },
-            "plugins": {
-              "SplashScreen": {
-                "launchShowDuration": 2000,
-                "backgroundColor": "#004C97",
-                "showSpinner": false,
-                "iosScaleType": "CENTER_CROP",
-                "splashFullScreen": true,
-                "splashImmersive": true
-              },
-              "StatusBar": {
-                "style": "LIGHT"
-              }
             }
           }
           CAPCFG
