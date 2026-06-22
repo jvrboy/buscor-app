@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuthStore, useAppStore } from '@/lib/store';
+import { apiFetch } from '@/lib/utils';
 import { toast } from 'sonner';
+import type { User, Card } from '@/lib/types';
 
 interface FormErrors {
   fullName?: string;
@@ -66,13 +68,11 @@ export default function RegisterView() {
     if (!validate()) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/register', {
+      const data = await apiFetch<{ user: User; card: Card }>('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Registration failed');
       setAuth(data.user, data.card);
       toast.success('Registration successful!');
       useAppStore.getState().navigate('dashboard');

@@ -35,6 +35,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useAuthStore, useAppStore } from '@/lib/store';
+import { apiFetch, apiFetchPaginated } from '@/lib/utils';
 import { toast } from 'sonner';
 import TopUpDialog from '@/components/TopUpDialog';
 import GuestBanner from '@/components/GuestBanner';
@@ -90,11 +91,8 @@ export default function ProfileView() {
       }
       if (user?.id) {
         try {
-          const res = await fetch(`/api/transactions?userId=${user.id}`);
-          if (res.ok) {
-            const data = await res.json();
-            setTransactions(Array.isArray(data) ? data : data.transactions || []);
-          }
+          const { items } = await apiFetchPaginated<Transaction>(`/api/transactions?userId=${user.id}`);
+          setTransactions(items);
         } catch {
           // silent
         }
@@ -124,14 +122,12 @@ export default function ProfileView() {
     }
     setSaving(true);
     try {
-      const res = await fetch('/api/profile', {
+      const data = await apiFetch<{ id: string; fullName: string; email: string; phone: string }>('/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user?.id, ...editForm }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Update failed');
-      updateUser(data.id ? data : editForm);
+      updateUser(data);
       toast.success('Profile updated successfully');
       setEditing(false);
     } catch (err: unknown) {

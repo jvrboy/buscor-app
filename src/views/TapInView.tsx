@@ -15,9 +15,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore, useAppStore } from '@/lib/store';
+import { apiFetch } from '@/lib/utils';
 import { toast } from 'sonner';
 import GuestBanner from '@/components/GuestBanner';
-import type { TapToken, Ticket } from '@/lib/types';
+import type { Ticket } from '@/lib/types';
 
 const COUNTDOWN_SECONDS = 90;
 
@@ -37,13 +38,11 @@ export default function TapInView() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/tap-in/generate', {
+      const data = await apiFetch<{ token: string; expiresAt: string }>('/api/tap-in/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cardId: card.id }),
       });
-      const data: TapToken = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to generate code');
       setToken(data.token);
       setCountdown(COUNTDOWN_SECONDS);
     } catch (err: unknown) {
@@ -58,14 +57,10 @@ export default function TapInView() {
   const fetchTicketCount = useCallback(async () => {
     if (!card?.id) return;
     try {
-      const res = await fetch(`/api/tickets?cardId=${card.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        const tickets: Ticket[] = Array.isArray(data) ? data : data.tickets || [];
-        setActiveTicketCount(
-          tickets.filter((t) => t.status === 'active').length
-        );
-      }
+      const tickets = await apiFetch<Ticket[]>(`/api/tickets?cardId=${card.id}`);
+      setActiveTicketCount(
+        tickets.filter((t) => t.status === 'active').length
+      );
     } catch {
       // silent
     }

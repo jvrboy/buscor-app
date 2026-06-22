@@ -28,9 +28,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useAuthStore, useAppStore } from '@/lib/store';
+import { apiFetch } from '@/lib/utils';
 import { toast } from 'sonner';
 import GuestBanner from '@/components/GuestBanner';
-import type { Ticket as TicketType } from '@/lib/types';
+import type { Ticket as TicketType, Card } from '@/lib/types';
 
 interface TicketOption {
   id: string;
@@ -105,11 +106,8 @@ export default function BuyTicketsView() {
     }
     if (!card?.id) return;
     try {
-      const res = await fetch(`/api/tickets?cardId=${card.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        setActiveTickets(Array.isArray(data) ? data : data.tickets || []);
-      }
+      const tickets = await apiFetch<TicketType[]>(`/api/tickets?cardId=${card.id}`);
+      setActiveTickets(tickets);
     } catch {
       // silent
     } finally {
@@ -133,21 +131,15 @@ export default function BuyTicketsView() {
     }
     setPurchasing(option.id);
     try {
-      const res = await fetch('/api/tickets/buy', {
+      const ticket = await apiFetch<TicketType>('/api/tickets/buy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cardId: card.id, type: option.type }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Purchase failed');
       toast.success(`${option.name} purchased successfully!`);
-      // Refresh card balance from dashboard
-      const cardRes = await fetch(`/api/card?cardId=${card.id}`);
-      if (cardRes.ok) {
-        const cardData = await cardRes.json();
-        updateCard(cardData);
-      }
-      setActiveTickets((prev) => [data, ...prev]);
+      const cardData = await apiFetch<Card>(`/api/card?cardId=${card.id}`);
+      updateCard(cardData);
+      setActiveTickets((prev) => [ticket, ...prev]);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Purchase failed';
       toast.error(message);

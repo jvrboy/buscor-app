@@ -1,59 +1,57 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { NextRequest } from 'next/server';
 import { z } from 'zod';
+import { db } from '@/lib/db';
+import { apiHandler, success } from '@/lib/response';
+import { ValidationError } from '@/lib/errors';
+import { TICKET_CONFIG, type TicketType } from '@/lib/constants';
 
 const validateSchema = z.object({
-  token: z.string().min(1),
+  token: z.string().min(1, 'token is required'),
 });
 
-export async function POST(request: NextRequest) {
-  try {
+/** Map ticket type to its fare price from TICKET_CONFIG */
+function getFareForTicketType(type: string): number {
+  const config = TICKET_CONFIG[type as TicketType];
+  return config?.price ?? 12.0;
+}
+
+export function POST(request: NextRequest) {
+  return apiHandler(async () => {
     const body = await request.json();
     const parsed = validateSchema.safeParse(body);
-
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid input', details: parsed.error.flatten() },
-        { status: 400 }
-      );
+      throw new ValidationError('Invalid input', parsed.error.flatten());
     }
 
     const { token } = parsed.data;
 
+    // Look up the tap token with card info
     const tapToken = await db.tapToken.findUnique({
       where: { token },
       include: { card: true },
     });
 
     if (!tapToken) {
-      return NextResponse.json({
-        valid: false,
-        error: 'Invalid tap token',
-      });
+      throw new ValidationError('Invalid tap token');
     }
 
     if (tapToken.usedAt) {
-      return NextResponse.json({
-        valid: false,
-        error: 'Token has already been used',
-      });
+      throw new ValidationError('Token has already been used');
     }
 
     if (tapToken.expiresAt < new Date()) {
-      return NextResponse.json({
-        valid: false,
-        error: 'Token has expired',
-      });
+      throw new ValidationError('Token has expired');
     }
 
-    // Mark token as used and create a trip record
-    const updatedToken = await db.$transaction(async (tx) => {
-      const markedToken = await tx.tapToken.update({
+    // Mark token as used and create trip record in a transaction
+    const result = await db.$transaction(async (tx) => {
+      // Mark token as used
+      await tx.tapToken.update({
         where: { id: tapToken.id },
         data: { usedAt: new Date() },
       });
 
-      // Determine the fare based on the ticket type
+      // Find the most recently used/updated ticket for this card to determine fare
       const activeTicket = await tx.ticket.findFirst({
         where: {
           cardId: tapToken.cardId,
@@ -62,7 +60,9 @@ export async function POST(request: NextRequest) {
         orderBy: { updatedAt: 'desc' },
       });
 
-      const fare = activeTicket?.type === 'multi_ride' ? 10.0 : 12.0;
+      const fare = activeTicket
+        ? getFareForTicketType(activeTicket.type)
+        : 12.0;
 
       const trip = await tx.trip.create({
         data: {
@@ -72,22 +72,9 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      return { markedToken, trip };
+      return trip;
     });
 
-    return NextResponse.json({
-      valid: true,
-      trip: {
-        id: updatedToken.trip.id,
-        cardId: updatedToken.trip.cardId,
-        route: updatedToken.trip.route,
-        fromStop: updatedToken.trip.fromStop,
-        toStop: updatedToken.trip.toStop,
-        fare: updatedToken.trip.fare,
-        timestamp: updatedToken.trip.timestamp.toISOString(),
-      },
-    });
-  } catch {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
+    return success({ valid: true, trip: result });
+  });
 }

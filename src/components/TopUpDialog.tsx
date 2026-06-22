@@ -14,7 +14,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuthStore } from '@/lib/store';
+import { apiFetch } from '@/lib/utils';
 import { toast } from 'sonner';
+import type { Card } from '@/lib/types';
 
 interface TopUpDialogProps {
   open: boolean;
@@ -47,14 +49,12 @@ export default function TopUpDialog({ open, onOpenChange, onSuccess }: TopUpDial
     }
     setLoading(true);
     try {
-      const res = await fetch('/api/topup', {
+      const data = await apiFetch<Card>('/api/topup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, cardId: card.id, amount: finalAmount }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Top up failed');
-      if (data.balance !== undefined) updateCard(data);
+      updateCard(data);
       toast.success(`R${finalAmount.toFixed(2)} added to your card!`);
       onSuccess(finalAmount);
       // Reset

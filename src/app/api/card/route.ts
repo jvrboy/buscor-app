@@ -1,53 +1,44 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { NextRequest } from 'next/server';
 import { z } from 'zod';
+import { db } from '@/lib/db';
+import { apiHandler, success, parsePagination } from '@/lib/response';
+import { ValidationError, NotFoundError } from '@/lib/errors';
 
-const cardSchema = z.object({
-  cardId: z.string().min(1),
+const querySchema = z.object({
+  cardId: z.string().min(1, 'cardId is required'),
 });
 
-export async function GET(request: NextRequest) {
-  try {
+export function GET(request: NextRequest) {
+  return apiHandler(async () => {
     const { searchParams } = new URL(request.url);
-    const parsed = cardSchema.safeParse({
+    const raw = {
       cardId: searchParams.get('cardId') ?? '',
-    });
-
+    };
+    const parsed = querySchema.safeParse(raw);
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'cardId query parameter is required' },
-        { status: 400 }
-      );
+      throw new ValidationError('Invalid query parameters', parsed.error.flatten());
     }
 
     const { cardId } = parsed.data;
 
     const card = await db.card.findUnique({
       where: { id: cardId },
-      include: { user: true },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phone: true,
+          },
+        },
+      },
     });
 
     if (!card) {
-      return NextResponse.json({ error: 'Card not found' }, { status: 404 });
+      throw new NotFoundError('Card');
     }
 
-    return NextResponse.json({
-      id: card.id,
-      cardNumber: card.cardNumber,
-      balance: card.balance,
-      status: card.status,
-      type: card.type,
-      userId: card.userId,
-      createdAt: card.createdAt.toISOString(),
-      updatedAt: card.updatedAt.toISOString(),
-      user: {
-        id: card.user.id,
-        fullName: card.user.fullName,
-        email: card.user.email,
-        phone: card.user.phone,
-      },
-    });
-  } catch {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
+    return success(card);
+  });
 }

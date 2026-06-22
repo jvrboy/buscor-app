@@ -1,111 +1,115 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { NextRequest } from 'next/server';
 import { z } from 'zod';
+import { db } from '@/lib/db';
+import { apiHandler, success } from '@/lib/response';
+import {
+  ValidationError,
+  NotFoundError,
+  CardBlockedError,
+  CardExpiredError,
+  InsufficientBalanceError,
+} from '@/lib/errors';
+import { TICKET_CONFIG, type TicketType } from '@/lib/constants';
 
 const buyTicketSchema = z.object({
-  cardId: z.string().min(1),
-  type: z.enum(['single', 'multi_ride', 'weekly']),
+  cardId: z.string().min(1, 'cardId is required'),
+  type: z.enum(['single', 'multi_ride', 'weekly'], {
+    errorMap: () => ({ message: 'Ticket type must be one of: single, multi_ride, weekly' }),
+  }),
 });
 
-const TICKET_PRICES: Record<string, number> = {
-  single: 12.0,
-  multi_ride: 100.0,
-  weekly: 200.0,
-};
-
-const TICKET_TRIPS: Record<string, number> = {
-  single: 1,
-  multi_ride: 10,
-  weekly: 999, // "unlimited" — treated as a large number
-};
-
-const TICKET_LABELS: Record<string, string> = {
-  single: 'Single Ride',
-  multi_ride: 'Multi-Ride (10 trips)',
-  weekly: 'Weekly Pass (7 days)',
-};
-
-export async function POST(request: NextRequest) {
-  try {
+export function POST(request: NextRequest) {
+  return apiHandler(async () => {
     const body = await request.json();
     const parsed = buyTicketSchema.safeParse(body);
-
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid input', details: parsed.error.flatten() },
-        { status: 400 }
-      );
+      throw new ValidationError('Invalid input', parsed.error.flatten());
     }
 
     const { cardId, type } = parsed.data;
-    const price = TICKET_PRICES[type];
-    const tripsCount = TICKET_TRIPS[type];
+    const ticketConfig = TICKET_CONFIG[type as TicketType];
+    const { price, trips, label } = ticketConfig;
 
+    // Check card exists and is active
     const card = await db.card.findUnique({ where: { id: cardId } });
 
     if (!card) {
-      return NextResponse.json({ error: 'Card not found' }, { status: 404 });
+      throw new NotFoundError('Card');
+    }
+
+    if (card.status === 'blocked') {
+      throw new CardBlockedError();
+    }
+
+    if (card.status === 'expired') {
+      throw new CardExpiredError();
     }
 
     if (card.status !== 'active') {
-      return NextResponse.json(
-        { error: 'Card is not active' },
-        { status: 400 }
-      );
+      throw new ValidationError('Card is not active');
     }
 
+    // Check balance
     if (card.balance < price) {
-      return NextResponse.json(
-        {
-          error: 'Insufficient balance',
-          required: price,
-          available: card.balance,
-        },
-        { status: 400 }
-      );
+      throw new InsufficientBalanceError(price, card.balance);
     }
 
+    // Execute purchase in a transaction
     const ticket = await db.$transaction(async (tx) => {
+      // Deduct balance
       const updatedCard = await tx.card.update({
         where: { id: cardId },
         data: { balance: { decrement: price } },
       });
 
-      const newTicket = await tx.ticket.create({
-        data: {
-          type,
-          tripsRemaining: tripsCount,
-          price,
-          status: 'active',
-          cardId,
-        },
-      });
+      // Build ticket data
+      const ticketData: {
+        type: string;
+        tripsRemaining: number;
+        price: number;
+        status: string;
+        cardId: string;
+        expiresAt?: Date;
+      } = {
+        type,
+        tripsRemaining: trips,
+        price,
+        status: 'active',
+        cardId,
+      };
 
+      // For weekly tickets, set expiration
+      if (type === 'weekly' && ticketConfig.durationDays) {
+        ticketData.expiresAt = new Date(
+          Date.now() + ticketConfig.durationDays * 24 * 60 * 60 * 1000,
+        );
+      }
+
+      const newTicket = await tx.ticket.create({ data: ticketData });
+
+      // Create transaction record
       await tx.transaction.create({
         data: {
           userId: updatedCard.userId,
           type: 'purchase',
           amount: -price,
-          description: `Purchased ${TICKET_LABELS[type]} ticket`,
+          description: `Purchased ${label} ticket`,
+        },
+      });
+
+      // Create notification
+      await tx.notification.create({
+        data: {
+          userId: updatedCard.userId,
+          type: 'purchase',
+          title: 'Ticket Purchased',
+          message: `You purchased ${label} for R${price.toFixed(2)}`,
         },
       });
 
       return newTicket;
     });
 
-    return NextResponse.json(
-      {
-        id: ticket.id,
-        type: ticket.type,
-        tripsRemaining: ticket.tripsRemaining,
-        price: ticket.price,
-        status: ticket.status,
-        cardId: ticket.cardId,
-        createdAt: ticket.createdAt.toISOString(),
-      },
-      { status: 201 }
-    );
-  } catch {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
+    return success(ticket, 201);
+  });
 }

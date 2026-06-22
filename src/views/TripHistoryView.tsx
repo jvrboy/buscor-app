@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useAuthStore, useAppStore } from '@/lib/store';
+import { apiFetchPaginated } from '@/lib/utils';
 import GuestBanner from '@/components/GuestBanner';
 import type { Trip } from '@/lib/types';
 
@@ -68,11 +69,8 @@ export default function TripHistoryView() {
     if (!card?.id) return;
     const fetchTrips = async () => {
       try {
-        const res = await fetch(`/api/trips?cardId=${card.id}`);
-        if (res.ok) {
-          const data = await res.json();
-          setTrips(Array.isArray(data) ? data : data.trips || []);
-        }
+        const { items } = await apiFetchPaginated<Trip>(`/api/trips?cardId=${card.id}`);
+        setTrips(items);
       } catch {
         // silent
       } finally {

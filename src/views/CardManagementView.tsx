@@ -29,8 +29,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useAuthStore, useAppStore } from '@/lib/store';
+import { apiFetch } from '@/lib/utils';
 import { toast } from 'sonner';
 import GuestBanner from '@/components/GuestBanner';
+import type { Card } from '@/lib/types';
 
 function formatCurrency(amount: number) {
   return `R${amount.toFixed(2)}`;
@@ -67,14 +69,12 @@ export default function CardManagementView() {
     setBlocking(true);
     try {
       const newStatus = isActive ? 'blocked' : 'active';
-      const res = await fetch('/api/card/status', {
+      const data = await apiFetch<Card>('/api/card/status', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cardId: card.id, status: newStatus }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update card status');
-      updateCard({ status: newStatus });
+      updateCard(data);
       toast.success(
         newStatus === 'blocked'
           ? 'Card blocked successfully'
@@ -93,14 +93,12 @@ export default function CardManagementView() {
     if (!card?.id) return;
     setReplacing(true);
     try {
-      const res = await fetch('/api/card/replace', {
+      const data = await apiFetch<Card>('/api/card/replace', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cardId: card.id }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to replace card');
-      if (data.id) updateCard(data);
+      updateCard(data);
       toast.success('Card replacement initiated. Your new card will be ready soon.');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to replace card';

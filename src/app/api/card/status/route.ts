@@ -1,39 +1,44 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { NextRequest } from 'next/server';
 import { z } from 'zod';
+import { db } from '@/lib/db';
+import { apiHandler, success } from '@/lib/response';
+import { ValidationError, NotFoundError } from '@/lib/errors';
 
 const updateStatusSchema = z.object({
-  cardId: z.string().min(1),
-  status: z.enum(['active', 'blocked']),
+  cardId: z.string().min(1, 'cardId is required'),
+  status: z.enum(['active', 'blocked', 'expired'], {
+    errorMap: () => ({ message: 'Status must be one of: active, blocked, expired' }),
+  }),
 });
 
-export async function PUT(request: NextRequest) {
-  try {
+export function PUT(request: NextRequest) {
+  return apiHandler(async () => {
     const body = await request.json();
     const parsed = updateStatusSchema.safeParse(body);
-
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid input', details: parsed.error.flatten() },
-        { status: 400 }
-      );
+      throw new ValidationError('Invalid input', parsed.error.flatten());
     }
 
     const { cardId, status } = parsed.data;
 
-    const card = await db.card.findUnique({ where: { id: cardId } });
+    // Fetch card first with user info
+    const card = await db.card.findUnique({
+      where: { id: cardId },
+      include: { user: { select: { id: true } } },
+    });
 
     if (!card) {
-      return NextResponse.json({ error: 'Card not found' }, { status: 404 });
+      throw new NotFoundError('Card');
     }
 
     const updatedCard = await db.$transaction(async (tx) => {
+      // Update card status
       const updated = await tx.card.update({
         where: { id: cardId },
         data: { status },
       });
 
-      // If blocking, invalidate all active tap tokens
+      // When blocking: invalidate all active tap tokens
       if (status === 'blocked') {
         await tx.tapToken.updateMany({
           where: {
@@ -45,20 +50,20 @@ export async function PUT(request: NextRequest) {
         });
       }
 
+      // When unblocking: clear loginAttempts and lockedUntil on the user
+      if (status === 'active') {
+        await tx.user.update({
+          where: { id: card.userId },
+          data: {
+            loginAttempts: 0,
+            lockedUntil: null,
+          },
+        });
+      }
+
       return updated;
     });
 
-    return NextResponse.json({
-      id: updatedCard.id,
-      cardNumber: updatedCard.cardNumber,
-      balance: updatedCard.balance,
-      status: updatedCard.status,
-      type: updatedCard.type,
-      userId: updatedCard.userId,
-      createdAt: updatedCard.createdAt.toISOString(),
-      updatedAt: updatedCard.updatedAt.toISOString(),
-    });
-  } catch {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
+    return success(updatedCard);
+  });
 }

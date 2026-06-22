@@ -1,40 +1,83 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { db } from '@/lib/db';
 import { generateTapToken } from '@/lib/auth';
-import { z } from 'zod';
+import { apiHandler, success } from '@/lib/response';
+import {
+  ValidationError,
+  NotFoundError,
+  CardBlockedError,
+  CardExpiredError,
+  NoTicketError,
+} from '@/lib/errors';
+import { SECURITY_CONFIG } from '@/lib/constants';
 
 const generateSchema = z.object({
-  cardId: z.string().min(1),
+  cardId: z.string().min(1, 'cardId is required'),
 });
 
-export async function POST(request: NextRequest) {
-  try {
+export function POST(request: NextRequest) {
+  return apiHandler(async () => {
     const body = await request.json();
     const parsed = generateSchema.safeParse(body);
-
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid input', details: parsed.error.flatten() },
-        { status: 400 }
-      );
+      throw new ValidationError('Invalid input', parsed.error.flatten());
     }
 
     const { cardId } = parsed.data;
 
+    // Validate card
     const card = await db.card.findUnique({ where: { id: cardId } });
 
     if (!card) {
-      return NextResponse.json({ error: 'Card not found' }, { status: 404 });
+      throw new NotFoundError('Card');
+    }
+
+    if (card.status === 'blocked') {
+      throw new CardBlockedError();
+    }
+
+    if (card.status === 'expired') {
+      throw new CardExpiredError();
     }
 
     if (card.status !== 'active') {
-      return NextResponse.json(
-        { error: 'Card is not active' },
-        { status: 400 }
-      );
+      throw new ValidationError('Card is not active');
     }
 
-    // Find an eligible ticket: active single ticket or active multi-ride with trips remaining
+    // Find an eligible ticket (priority: weekly > multi_ride > single)
+    const now = new Date();
+
+    // Weekly pass: active and not expired
+    const weeklyTicket = await db.ticket.findFirst({
+      where: {
+        cardId,
+        type: 'weekly',
+        status: 'active',
+        expiresAt: { gt: now },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (weeklyTicket) {
+      // Weekly pass — no trip deduction needed, just generate token
+      const token = generateTapToken();
+      const expiresAt = new Date(Date.now() + SECURITY_CONFIG.tapTokenExpirySeconds * 1000);
+
+      const tapToken = await db.$transaction(async (tx) => {
+        const created = await tx.tapToken.create({
+          data: { token, cardId, expiresAt },
+        });
+        return created;
+      });
+
+      return success({
+        token: tapToken.token,
+        expiresAt: tapToken.expiresAt.toISOString(),
+      });
+    }
+
+    // Single ride: active, not yet used
     const singleTicket = await db.ticket.findFirst({
       where: {
         cardId,
@@ -44,6 +87,7 @@ export async function POST(request: NextRequest) {
       orderBy: { createdAt: 'asc' },
     });
 
+    // Multi-ride: active with remaining trips
     const multiRideTicket = await db.ticket.findFirst({
       where: {
         cardId,
@@ -57,37 +101,30 @@ export async function POST(request: NextRequest) {
     const ticket = singleTicket ?? multiRideTicket;
 
     if (!ticket) {
-      return NextResponse.json(
-        { error: 'No active ticket available. Please purchase a ticket first.' },
-        { status: 400 }
-      );
+      throw new NoTicketError();
     }
 
     const token = generateTapToken();
-    const expiresAt = new Date(Date.now() + 90 * 1000); // 90 seconds from now
+    const expiresAt = new Date(Date.now() + SECURITY_CONFIG.tapTokenExpirySeconds * 1000);
 
     const tapToken = await db.$transaction(async (tx) => {
-      const createdToken = await tx.tapToken.create({
-        data: {
-          token,
-          cardId,
-          expiresAt,
-        },
+      const created = await tx.tapToken.create({
+        data: { token, cardId, expiresAt },
       });
 
+      // Deduct trip from the ticket
       if (ticket.type === 'single') {
         await tx.ticket.update({
           where: { id: ticket.id },
           data: { status: 'used' },
         });
-      } else {
-        await tx.ticket.update({
+      } else if (ticket.type === 'multi_ride') {
+        const updated = await tx.ticket.update({
           where: { id: ticket.id },
           data: { tripsRemaining: { decrement: 1 } },
         });
-        // If no trips remaining, mark as used
-        const updated = await tx.ticket.findUnique({ where: { id: ticket.id } });
-        if (updated && updated.tripsRemaining <= 0) {
+        // Mark as used if no trips remaining
+        if (updated.tripsRemaining <= 0) {
           await tx.ticket.update({
             where: { id: ticket.id },
             data: { status: 'used' },
@@ -95,14 +132,12 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      return createdToken;
+      return created;
     });
 
-    return NextResponse.json({
+    return success({
       token: tapToken.token,
       expiresAt: tapToken.expiresAt.toISOString(),
     });
-  } catch {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
+  });
 }

@@ -19,6 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useAuthStore, useAppStore } from '@/lib/store';
+import { apiFetch } from '@/lib/utils';
 import GuestBanner from '@/components/GuestBanner';
 import type { DashboardData, Trip } from '@/lib/types';
 
@@ -113,12 +114,9 @@ export default function DashboardView() {
     }
     const fetchDashboard = async () => {
       try {
-        const res = await fetch(`/api/dashboard?cardId=${card.id}`);
-        if (res.ok) {
-          const json = await res.json();
-          setData(json);
-          if (json.card) updateCard(json.card);
-        }
+        const json = await apiFetch<DashboardData>(`/api/dashboard?cardId=${card.id}`);
+        setData(json);
+        if (json.card) updateCard(json.card);
       } catch {
         // Silently fail - use store data
       } finally {

@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuthStore, useAppStore } from '@/lib/store';
+import { apiFetch } from '@/lib/utils';
 import { toast } from 'sonner';
+import type { User, Card } from '@/lib/types';
 
 export default function LoginView() {
   const [cardNumber, setCardNumber] = useState('');
@@ -34,13 +36,11 @@ export default function LoginView() {
     if (!validate()) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/login', {
+      const data = await apiFetch<{ user: User; card: Card }>('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cardNumber, pin }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Login failed');
       setAuth(data.user, data.card);
       toast.success('Welcome back!');
       navigate('dashboard');

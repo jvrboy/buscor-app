@@ -1,49 +1,76 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { NextRequest } from 'next/server';
 import { z } from 'zod';
+import { db } from '@/lib/db';
+import { apiHandler, success } from '@/lib/response';
+import { ValidationError, NotFoundError } from '@/lib/errors';
 
-const dashboardSchema = z.object({
-  cardId: z.string().min(1),
+/** Query parameter schema for the dashboard endpoint */
+const dashboardQuerySchema = z.object({
+  cardId: z.string().min(1, 'cardId is required'),
 });
 
+/**
+ * GET /api/dashboard?cardId=xxx
+ *
+ * Returns the card owner's dashboard data including:
+ * - Card info (with user)
+ * - Recent trips (last 5)
+ * - Active tickets
+ * - Total spending & trip count aggregates
+ *
+ * Automatically expires any weekly tickets whose expiresAt has passed
+ * before returning dashboard data.
+ */
 export async function GET(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const { searchParams } = new URL(request.url);
-    const parsed = dashboardSchema.safeParse({
+
+    // ── Validate query parameters ──────────────────────────────────────
+    const parsed = dashboardQuerySchema.safeParse({
       cardId: searchParams.get('cardId') ?? '',
     });
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'cardId query parameter is required' },
-        { status: 400 }
-      );
+      throw new ValidationError(parsed.error.issues[0].message);
     }
 
     const { cardId } = parsed.data;
 
+    // ── Auto-expire weekly tickets whose expiresAt < now ──────────────
+    await db.ticket.updateMany({
+      where: {
+        cardId,
+        status: 'active',
+        type: 'weekly',
+        expiresAt: { lt: new Date() },
+      },
+      data: { status: 'expired' },
+    });
+
+    // ── Fetch card (include user) ─────────────────────────────────────
     const card = await db.card.findUnique({
       where: { id: cardId },
       include: { user: true },
     });
 
     if (!card) {
-      return NextResponse.json({ error: 'Card not found' }, { status: 404 });
+      throw new NotFoundError('Card');
     }
 
+    // ── Fetch dashboard data in parallel ──────────────────────────────
     const [recentTrips, activeTickets, tripAggregation] = await Promise.all([
+      // Last 5 trips, most recent first
       db.trip.findMany({
         where: { cardId },
         orderBy: { timestamp: 'desc' },
         take: 5,
       }),
+      // All currently active tickets
       db.ticket.findMany({
-        where: {
-          cardId,
-          status: 'active',
-        },
+        where: { cardId, status: 'active' },
         orderBy: { createdAt: 'desc' },
       }),
+      // Aggregate totals across all trips
       db.trip.aggregate({
         where: { cardId },
         _sum: { fare: true },
@@ -51,13 +78,19 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
-    return NextResponse.json({
+    // ── Build & return response ──────────────────────────────────────
+    return success({
       card: {
         id: card.id,
         cardNumber: card.cardNumber,
         balance: card.balance,
         status: card.status,
         type: card.type,
+        user: {
+          id: card.user.id,
+          fullName: card.user.fullName,
+          email: card.user.email,
+        },
         createdAt: card.createdAt.toISOString(),
         updatedAt: card.updatedAt.toISOString(),
       },
@@ -75,12 +108,11 @@ export async function GET(request: NextRequest) {
         tripsRemaining: ticket.tripsRemaining,
         price: ticket.price,
         status: ticket.status,
+        expiresAt: ticket.expiresAt?.toISOString() ?? null,
         createdAt: ticket.createdAt.toISOString(),
       })),
       totalSpent: tripAggregation._sum.fare ?? 0,
       totalTrips: tripAggregation._count ?? 0,
     });
-  } catch {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
+  });
 }

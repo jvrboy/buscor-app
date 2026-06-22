@@ -8,58 +8,74 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  fullName  String
-  email     String   @unique
-  phone     String?
-  pin       String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String    @id @default(cuid())
+  fullName        String
+  email           String    @unique
+  phone           String?
+  pin             String
+  loginAttempts   Int       @default(0)
+  lockedUntil     DateTime?
+  lastLoginAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  cards Card[]
+  cards        Card[]
   transactions Transaction[]
+  notifications Notification[]
 }
 
 model Card {
-  id        String   @id @default(cuid())
-  cardNumber String  @unique
-  userId    String
-  balance   Float    @default(0)
-  status    String   @default("active") // active, blocked, expired
-  type      String   @default("standard") // standard, premium, student
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user         User        @relation(fields: [userId], references: [id])
-  tickets      Ticket[]
-  trips        Trip[]
-  tapTokens    TapToken[]
-}
-
-model Ticket {
   id          String   @id @default(cuid())
-  type        String   // single, multi_ride
-  tripsRemaining Int    @default(1)
-  price       Float
-  status      String   @default("active") // active, used, expired
-  cardId      String
+  cardNumber  String   @unique
+  userId      String
+  balance     Float    @default(0)
+  status      String   @default("active") // active, blocked, expired
+  type        String   @default("standard") // standard, premium, student
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  user      User       @relation(fields: [userId], references: [id])
+  tickets   Ticket[]
+  trips     Trip[]
+  tapTokens TapToken[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Ticket {
+  id              String    @id @default(cuid())
+  type            String    // single, multi_ride, weekly
+  tripsRemaining  Int       @default(1)
+  price           Float
+  status          String    @default("active") // active, used, expired
+  expiresAt       DateTime? // For weekly passes
+  cardId          String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
   card Card @relation(fields: [cardId], references: [id])
+
+  @@index([cardId])
+  @@index([status])
+  @@index([expiresAt])
 }
 
 model Trip {
-  id          String   @id @default(cuid())
-  cardId      String
-  route       String?
-  fromStop    String?
-  toStop      String?
-  fare        Float
-  timestamp   DateTime @default(now())
-  ticketId    String?
+  id        String   @id @default(cuid())
+  cardId    String
+  route     String?
+  routeId   String?  // References ROUTE_FARES keys
+  fromStop  String?
+  toStop    String?
+  fare      Float
+  timestamp DateTime @default(now())
+  ticketId  String?
 
   card Card @relation(fields: [cardId], references: [id])
+
+  @@index([cardId])
+  @@index([timestamp])
 }
 
 model Transaction {
@@ -71,15 +87,38 @@ model Transaction {
   createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
 }
 
 model TapToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
+  id        String    @id @default(cuid())
+  token     String    @unique
   cardId    String
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   card Card @relation(fields: [cardId], references: [id])
+
+  @@index([cardId])
+  @@index([expiresAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // low_balance, ticket_expired, card_blocked, topup_success, trip_summary
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
 }
