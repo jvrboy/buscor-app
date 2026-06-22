@@ -10,6 +10,7 @@ import TapInView from '@/views/TapInView';
 import CardManagementView from '@/views/CardManagementView';
 import TripHistoryView from '@/views/TripHistoryView';
 import ProfileView from '@/views/ProfileView';
+import SettingsView from '@/views/SettingsView';
 import BottomNav from '@/components/BottomNav';
 
 const viewComponents: Record<string, React.ComponentType> = {
@@ -21,6 +22,7 @@ const viewComponents: Record<string, React.ComponentType> = {
   'card-management': CardManagementView,
   'trip-history': TripHistoryView,
   profile: ProfileView,
+  settings: SettingsView,
 };
 
 export default function Home() {
@@ -29,7 +31,6 @@ export default function Home() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const initialRedirect = useRef(false);
 
-  // Redirect to dashboard if authenticated/guest but on login/register
   useEffect(() => {
     if (isAuthenticated && (currentView === 'login' || currentView === 'register') && !initialRedirect.current) {
       initialRedirect.current = true;

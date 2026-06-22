@@ -6,12 +6,28 @@ __turbopack_context__.s([
     "useAppStore",
     ()=>useAppStore,
     "useAuthStore",
-    ()=>useAuthStore
+    ()=>useAuthStore,
+    "useSettingsStore",
+    ()=>useSettingsStore
 ]);
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/zustand/esm/react.mjs [app-ssr] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$middleware$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/zustand/esm/middleware.mjs [app-ssr] (ecmascript)");
 ;
 ;
+const DEFAULT_SETTINGS = {
+    nfcEnabled: true,
+    nfcAutoTap: false,
+    notificationsEnabled: true,
+    lowBalanceAlert: true,
+    tripAlerts: true,
+    biometricLogin: false,
+    darkMode: 'system',
+    language: 'en',
+    currency: 'ZAR',
+    autoTopUp: false,
+    autoTopUpAmount: 50,
+    lowBalanceThreshold: 20
+};
 const useAuthStore = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["create"])()((0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$middleware$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["persist"])((set)=>({
         user: null,
         card: null,
@@ -66,6 +82,20 @@ const useAuthStore = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_mo
             isAuthenticated: state.isAuthenticated,
             isGuest: state.isGuest
         })
+}));
+const useSettingsStore = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["create"])()((0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$middleware$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["persist"])((set)=>({
+        settings: DEFAULT_SETTINGS,
+        updateSettings: (updates)=>set((state)=>({
+                    settings: {
+                        ...state.settings,
+                        ...updates
+                    }
+                })),
+        resetSettings: ()=>set({
+                settings: DEFAULT_SETTINGS
+            })
+    }), {
+    name: 'buscor-settings'
 }));
 const useAppStore = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["create"])()((set)=>({
         currentView: 'login',

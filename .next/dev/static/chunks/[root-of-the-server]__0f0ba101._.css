@@ -861,6 +861,10 @@
     margin-top: calc(var(--spacing) * 4);
   }
 
+  .mt-5 {
+    margin-top: calc(var(--spacing) * 5);
+  }
+
   .mt-6 {
     margin-top: calc(var(--spacing) * 6);
   }
@@ -935,6 +939,10 @@
 
   .ml-9 {
     margin-left: calc(var(--spacing) * 9);
+  }
+
+  .ml-12 {
+    margin-left: calc(var(--spacing) * 12);
   }
 
   .ml-auto {
@@ -1087,6 +1095,10 @@
     height: calc(var(--spacing) * 4);
   }
 
+  .h-4\.5 {
+    height: calc(var(--spacing) * 4.5);
+  }
+
   .h-5 {
     height: calc(var(--spacing) * 5);
   }
@@ -1141,6 +1153,10 @@
 
   .h-\[1\.15rem\] {
     height: 1.15rem;
+  }
+
+  .h-\[18px\] {
+    height: 18px;
   }
 
   .h-\[calc\(100\%-1px\)\] {
@@ -1255,6 +1271,10 @@
     width: calc(var(--spacing) * 4);
   }
 
+  .w-4\.5 {
+    width: calc(var(--spacing) * 4.5);
+  }
+
   .w-5 {
     width: calc(var(--spacing) * 5);
   }
@@ -1299,6 +1319,14 @@
     width: calc(var(--spacing) * 20);
   }
 
+  .w-24 {
+    width: calc(var(--spacing) * 24);
+  }
+
+  .w-28 {
+    width: calc(var(--spacing) * 28);
+  }
+
   .w-32 {
     width: calc(var(--spacing) * 32);
   }
@@ -1325,6 +1353,10 @@
 
   .w-72 {
     width: calc(var(--spacing) * 72);
+  }
+
+  .w-\[18px\] {
+    width: 18px;
   }
 
   .w-\[100px\] {
@@ -1939,12 +1971,28 @@
     background-color: #00a651;
   }
 
+  .bg-\[\#00A65115\] {
+    background-color: #00a65115;
+  }
+
   .bg-\[\#004C97\] {
     background-color: #004c97;
   }
 
+  .bg-\[\#004C9715\] {
+    background-color: #004c9715;
+  }
+
+  .bg-\[\#D32F2F15\] {
+    background-color: #d32f2f15;
+  }
+
   .bg-\[\#D32F2F\] {
     background-color: #d32f2f;
+  }
+
+  .bg-\[\#E3F2FD\] {
+    background-color: #e3f2fd;
   }
 
   .bg-\[\#E5E7EB\] {
@@ -1961,6 +2009,10 @@
 
   .bg-\[\#F9A825\] {
     background-color: #f9a825;
+  }
+
+  .bg-\[\#F9A82515\] {
+    background-color: #f9a82515;
   }
 
   .bg-\[\#F9FAFB\] {
@@ -2222,6 +2274,10 @@
     padding-block: calc(var(--spacing) * 3);
   }
 
+  .py-3\.5 {
+    padding-block: calc(var(--spacing) * 3.5);
+  }
+
   .py-4 {
     padding-block: calc(var(--spacing) * 4);
   }
@@ -2280,6 +2336,10 @@
 
   .pr-12 {
     padding-right: calc(var(--spacing) * 12);
+  }
+
+  .pb-2 {
+    padding-bottom: calc(var(--spacing) * 2);
   }
 
   .pb-3 {
@@ -2367,6 +2427,10 @@
 
   .text-\[0\.8rem\] {
     font-size: .8rem;
+  }
+
+  .text-\[9px\] {
+    font-size: 9px;
   }
 
   .text-\[10px\] {

@@ -57,6 +57,38 @@ export interface DashboardData {
   totalTrips: number;
 }
 
+export interface NfcTag {
+  id: string;
+  tagId: string;
+  cardId: string;
+  userId: string;
+  linkedAt: string;
+  lastScannedAt?: string;
+  scanCount: number;
+}
+
+export interface NfcScanResult {
+  success: boolean;
+  trip?: Trip;
+  balance?: number;
+  message: string;
+}
+
+export interface AppSettings {
+  nfcEnabled: boolean;
+  nfcAutoTap: boolean;
+  notificationsEnabled: boolean;
+  lowBalanceAlert: boolean;
+  tripAlerts: boolean;
+  biometricLogin: boolean;
+  darkMode: 'system' | 'light' | 'dark';
+  language: string;
+  currency: string;
+  autoTopUp: boolean;
+  autoTopUpAmount: number;
+  lowBalanceThreshold: number;
+}
+
 export type AppView =
   | 'login'
   | 'register'
@@ -65,4 +97,5 @@ export type AppView =
   | 'tap-in'
   | 'card-management'
   | 'trip-history'
-  | 'profile';
+  | 'profile'
+  | 'settings';

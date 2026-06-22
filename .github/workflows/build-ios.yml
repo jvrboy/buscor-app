@@ -126,10 +126,6 @@ jobs:
           rm -rf ios/App/App/Assets.xcassets/Splash.imageset
           cp -R mobile-resources/ios/App/App/Assets.xcassets/Splash.imageset ios/App/App/Assets.xcassets/
           
-          # Copy LaunchScreen.storyboard
-          mkdir -p ios/App/Base.lproj
-          cp -f mobile-resources/ios/App/Base.lproj/LaunchScreen.storyboard ios/App/Base.lproj/
-          
           # Update Info.plist
           PLIST="ios/App/Info.plist"
           /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Buscor" "$PLIST" 2>/dev/null || \

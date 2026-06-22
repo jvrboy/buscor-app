@@ -1,6 +1,21 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { User, Card, AppView } from '@/lib/types';
+import type { User, Card, AppView, AppSettings } from '@/lib/types';
+
+const DEFAULT_SETTINGS: AppSettings = {
+  nfcEnabled: true,
+  nfcAutoTap: false,
+  notificationsEnabled: true,
+  lowBalanceAlert: true,
+  tripAlerts: true,
+  biometricLogin: false,
+  darkMode: 'system',
+  language: 'en',
+  currency: 'ZAR',
+  autoTopUp: false,
+  autoTopUpAmount: 50,
+  lowBalanceThreshold: 20,
+};
 
 interface AuthState {
   user: User | null;
@@ -12,6 +27,12 @@ interface AuthState {
   updateCard: (card: Partial<Card>) => void;
   updateUser: (user: Partial<User>) => void;
   logout: () => void;
+}
+
+interface SettingsState {
+  settings: AppSettings;
+  updateSettings: (updates: Partial<AppSettings>) => void;
+  resetSettings: () => void;
 }
 
 interface AppState {
@@ -61,6 +82,22 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: state.isAuthenticated,
         isGuest: state.isGuest,
       }),
+    }
+  )
+);
+
+export const useSettingsStore = create<SettingsState>()(
+  persist(
+    (set) => ({
+      settings: DEFAULT_SETTINGS,
+      updateSettings: (updates) =>
+        set((state) => ({
+          settings: { ...state.settings, ...updates },
+        })),
+      resetSettings: () => set({ settings: DEFAULT_SETTINGS }),
+    }),
+    {
+      name: 'buscor-settings',
     }
   )
 );
