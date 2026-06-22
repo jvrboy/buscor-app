@@ -159,12 +159,14 @@ jobs:
           DERIVED="$RUNNER_TEMP/derived_data"
 
           set -o pipefail
+          
           xcodebuild \
             -project App.xcodeproj \
             -scheme App \
             -destination 'generic/platform=iOS' \
             -configuration "$CONFIG" \
             -derivedDataPath "$DERIVED" \
+            SUPPORTED_PLATFORMS="iphoneos iphonesimulator" \
             IPHONEOS_DEPLOYMENT_TARGET="${{ inputs.ios_deployment_target || '15.0' }}" \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
