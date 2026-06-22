@@ -60,14 +60,14 @@ jobs:
         run: npm install
 
       - name: Install Capacitor
-        run: npm install @capacitor/core @capacitor/cli @capacitor/ios @capacitor/splash-screen @capacitor/status-bar
+        run: npm install @capacitor/core @capacitor/cli @capacitor/ios
 
       - name: Prepare web dir + Capacitor config
         run: |
           rm -f capacitor.config.ts
           mkdir -p www
           echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Buscor</title></head><body></body></html>' > www/index.html
-          echo '{"appId":"za.co.buscor.app","appName":"Buscor","webDir":"www","server":{"url":"${{ inputs.server_url }}","androidScheme":"https","cleartext":true},"plugins":{"SplashScreen":{"launchShowDuration":2000,"backgroundColor":"#00A651","showSpinner":false,"androidScaleType":"CENTER_CROP"},"StatusBar":{"style":"LIGHT","backgroundColor":"#00A651"}},"ios":{"contentInset":"automatic"}}' > capacitor.config.json
+          echo '{"appId":"za.co.buscor.app","appName":"Buscor","webDir":"www","server":{"url":"${{ inputs.server_url }}","androidScheme":"https","cleartext":true},"ios":{"contentInset":"automatic"}}' > capacitor.config.json
 
       - name: Add iOS platform
         run: npx cap add ios
