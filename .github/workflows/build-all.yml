@@ -32,7 +32,7 @@ on:
 
 env:
   NODE_VERSION: "22"
-  JAVA_VERSION: "17"
+  JAVA_VERSION: "21"
   BUILD_TYPE: ${{ inputs.build_type || 'release' }}
 
 concurrency:
@@ -152,16 +152,24 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync ios
 
+      - name: Find iOS project paths
+        id: ios-paths
+        run: |
+          APP_DIR=$(find ios -name "App.xcworkspace" -exec dirname {} \;)
+          echo "app_dir=$APP_DIR" >> "$GITHUB_OUTPUT"
+          echo "Found iOS app at: $APP_DIR"
+          ls "$APP_DIR"/
+
       - name: Update iOS deployment target
         run: |
-          sed -i '' "s/platform :ios, '[^']*'/platform :ios, '${{ inputs.ios_deployment_target || '15.0' }}'/" ios/App/Podfile
+          sed -i '' "s/platform :ios, '[^']*'/platform :ios, '${{ inputs.ios_deployment_target || '15.0' }}'/" ${{ steps.ios-paths.outputs.app_dir }}/Podfile
 
       - name: Install CocoaPods dependencies
-        working-directory: ios/App
+        working-directory: ${{ steps.ios-paths.outputs.app_dir }}
         run: pod install --repo-update
 
       - name: Build unsigned .app
-        working-directory: ios/App
+        working-directory: ${{ steps.ios-paths.outputs.app_dir }}
         run: |
           CONFIG="${{ env.BUILD_TYPE == 'release' && 'Release' || 'Debug' }}"
           DERIVED="$RUNNER_TEMP/derived_data"
