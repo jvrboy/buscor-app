@@ -160,6 +160,13 @@ jobs:
 
           set -o pipefail
           
+          # Fix Capacitor project: add missing SUPPORTED_PLATFORMS
+          PBXPROJ="App.xcodeproj/project.pbxproj"
+          if grep -q 'SUPPORTED_PLATFORMS = ""' "$PBXPROJ"; then
+            echo "Fixing empty SUPPORTED_PLATFORMS in project.pbxproj"
+            sed -i '' 's/SUPPORTED_PLATFORMS = ""/SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"/' "$PBXPROJ"
+          fi
+          
           xcodebuild \
             -project App.xcodeproj \
             -scheme App \
