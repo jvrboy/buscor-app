@@ -239,11 +239,6 @@ jobs:
           cp -R mobile-resources/ios/App/App/Assets.xcassets/AppIcon.appiconset ios/App/App/Assets.xcassets/
           echo "  ✅ AppIcon assets copied"
           
-          # Copy splash images
-          rm -rf ios/App/App/Assets.xcassets/Splash.imageset
-          cp -R mobile-resources/ios/App/App/Assets.xcassets/Splash.imageset ios/App/App/Assets.xcassets/
-          echo "  ✅ Splash assets copied"
-          
           # Update Info.plist
           PLIST="ios/App/Info.plist"
           /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Buscor" "$PLIST" 2>/dev/null || \
