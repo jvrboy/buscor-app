@@ -162,7 +162,7 @@ jobs:
           xcodebuild \
             -project App.xcodeproj \
             -scheme App \
-            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
             -configuration "$CONFIG" \
             -derivedDataPath "$DERIVED" \
             IPHONEOS_DEPLOYMENT_TARGET="${{ inputs.ios_deployment_target || '15.0' }}" \
